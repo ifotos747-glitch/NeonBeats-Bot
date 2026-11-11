@@ -4,6 +4,7 @@ const {execFile}=require('node:child_process');
 const {ffmpegPath,BOT_NAME,VERSION}=require('./config');
 const {musicFiles,localFile,classifyInput}=require('./media');
 const store=require('./store'),{sessions,ensureSession}=require('./player');
+const {diagnoseStream,formatDiagnostic}=require('./diagnostics');
 const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildVoiceStates]});
 const hidden={flags:MessageFlags.Ephemeral};
 function clean(x){return String(x||'').replace(/[\r\n*@<>]/g,' ').slice(0,140);}
@@ -54,7 +55,7 @@ async function slash(i){
  const sub=['radio','autodj','247','dj','playlist'].includes(n)?i.options.getSubcommand():'';
  if(n==='neonhelp')return i.reply({embeds:[embed('🎧 NEONBEATS 1.0 — KOMENDY',
   '/play /queue /nowplaying /pause /resume /skip /stop /leave /volume /panel\n'+
-  '/radio add|remove|list|play|stop\n/autodj on|off\n/247 on|off|status\n'+
+  '/radio add|remove|list|play|stop|diagnoza\n/autodj on|off\n/247 on|off|status\n'+
   '/dj preset|off|status\n/playlist save|load|list|delete\n/status /files /testaudio')],...hidden});
  if(n==='panel')return i.reply(panel());
  if(n==='status'){
@@ -88,6 +89,14 @@ async function slash(i){
  }
  if(n==='radio'){
   const d=store.read(i.guildId),name=i.options.getString('nazwa');
+  if(sub==='diagnoza'){
+   requireAdmin(i);
+   const st=d.radios.find(r=>r.name.toLowerCase()===String(name||'').toLowerCase());
+   if(!st)throw Error('Nie znaleziono stacji.');
+   await i.deferReply(hidden);
+   const report=await diagnoseStream(st.url);
+   return i.editReply({content:formatDiagnostic(st.name,report),allowedMentions:{parse:[]}});
+  }
   if(sub==='list')return i.reply({content:'📻 Stacje:\n'+(d.radios.map(r=>clean(r.name)).join('\n')||'Brak stacji'),...hidden});
   if(sub==='add'){requireAdmin(i);const st=store.addRadio(i.guildId,name,i.options.getString('url',true));
    return i.reply({content:'✅ Dodano '+clean(st.name),...hidden});}

@@ -45,7 +45,7 @@ GitHub Actions uruchamia testy przy push i pull request.
 | Muzyka | `/play source:demo.wav`, `/queue`, `/skip`, `/stop`, `/pause`, `/resume` |
 | Diagnostyka | `/status`, `/testaudio`, `/files` |
 | Panel | `/panel`, `/nowplaying`, `/volume` |
-| Radio | `/radio add`, `/radio list`, `/radio play`, `/radio stop` |
+| Radio | `/radio add`, `/radio list`, `/radio play`, `/radio stop`, `/radio diagnoza` |
 | 24/7 | `/247 on`, `/247 off`, `/247 status` |
 | AutoDJ | `/autodj on`, `/autodj off` |
 | Efekty | `/dj preset`, `/dj off`, `/dj status` |
@@ -54,3 +54,7 @@ GitHub Actions uruchamia testy przy push i pull request.
 **Uwaga o YouTube i Spotify:** NeonBeats rozpoznaje adresy obu usług, ale ich API nie dostarczają audio do nadawania na kanale Discorda. Komenda `/play` nie obchodzi blokady sesji ani zabezpieczeń YouTube/Spotify. Korzystaj z muzyki i strumieni, do których odtwarzania i retransmisji masz prawo.
 
 **Bezpieczeństwo:** nigdy nie dodawaj prywatnego `.env`, tokenów Discord ani plików z folderu `data/` do GitHuba. Nie używaj tokena BOBER MUSIC BOT — NeonBeats wymaga osobnej aplikacji Discord.
+
+### Diagnostyka radia (1.0.1)
+
+Użyj `/radio diagnoza nazwa:<nazwa stacji>` dla zapisanej stacji. Komenda testuje 5 sekund audio przez FFmpeg z limitem czasu 20 sekund i pokazuje liczbę odebranych bajtów oraz odfiltrowany dziennik błędu. Wymaga uprawnienia Zarządzanie serwerem. Nie zmienia kolejki ani trybu 24/7.

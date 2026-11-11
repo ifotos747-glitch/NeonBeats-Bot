@@ -105,7 +105,7 @@ class MusicSession{
   child.once('error',e=>{if(this.process===child)this.fail('FFmpeg: '+(e.code||e.message));});
   child.once('close',code=>{
     if(this.closed||this.process!==child||child.killed)return;
-    if(code!==0||bytes===0)this.fail('FFmpeg: '+(errorText(stderr)||'nie ma danych audio'));
+    if(code!==0||bytes===0)this.fail('FFmpeg: '+(errorText(stderr)||('brak danych audio (kod: '+(code===null?'brak':code)+', bajty: '+bytes+')')));
     else this.retryCount=0;
   });
   this.resource=createAudioResource(child.stdout,{inputType:StreamType.Raw,inlineVolume:true,metadata:track});

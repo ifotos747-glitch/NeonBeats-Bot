@@ -25,7 +25,8 @@ const commands=[
    .addSubcommand(s=>s.setName('add').setDescription('Dodaj dozwolony strumień')
      .addStringOption(named)
      .addStringOption(o=>o.setName('url').setDescription('Publiczny URL audio').setRequired(true)))
-   .addSubcommand(s=>s.setName('remove').setDescription('Usuń stację').addStringOption(named)),
+   .addSubcommand(s=>s.setName('remove').setDescription('Usuń stację').addStringOption(named))
+   .addSubcommand(s=>s.setName('diagnoza').setDescription('Sprawdź audio i błąd FFmpeg zapisanej stacji').addStringOption(named)),
  new SlashCommandBuilder().setName('autodj').setDescription('Odtwarzanie plików music/')
    .addSubcommand(s=>s.setName('on').setDescription('Włącz AutoDJ'))
    .addSubcommand(s=>s.setName('off').setDescription('Wyłącz AutoDJ')),
