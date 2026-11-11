@@ -5,6 +5,7 @@ const {ffmpegPath,BOT_NAME,VERSION}=require('./config');
 const {musicFiles,localFile,classifyInput}=require('./media');
 const store=require('./store'),{sessions,ensureSession}=require('./player');
 const {diagnoseStream,diagnoseLocalFFmpeg,diagnoseHttp,formatDiagnostic}=require('./diagnostics');
+const {normalizeYouTubeUrl,ytDlpPath,installYtDlp,ytDlpVersion,diagnoseYouTube}=require('./youtube');
 const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildVoiceStates]});
 const hidden={flags:MessageFlags.Ephemeral};
 function clean(x){return String(x||'').replace(/[\r\n*@<>]/g,' ').slice(0,140);}
@@ -52,7 +53,7 @@ async function button(i){
 }
 async function slash(i){
  const n=i.commandName;
- const sub=['radio','autodj','247','dj','playlist'].includes(n)?i.options.getSubcommand():'';
+ const sub=['radio','autodj','247','dj','playlist','youtube'].includes(n)?i.options.getSubcommand():'';
  if(n==='neonhelp')return i.reply({embeds:[embed('🎧 NEONBEATS 1.0 — KOMENDY',
   '/play /queue /nowplaying /pause /resume /skip /stop /leave /volume /panel\n'+
   '/radio add|remove|list|play|stop|diagnoza\n/autodj on|off\n/247 on|off|status\n'+
@@ -68,10 +69,35 @@ async function slash(i){
    (s?.lastError?'\nOstatni błąd: '+clean(s.lastError):''))]});
  }
  if(n==='files')return i.reply({content:'🎵 Pliki: '+(musicFiles().map(clean).join(', ')||'Brak'),...hidden});
+ if(n==='youtube'){
+  if(sub==='status'){
+   const status=await ytDlpVersion();
+   return i.reply({content:status.ok?'✅ yt-dlp: '+status.description+' | Node: '+process.version:'⚠️ '+status.description,...hidden});
+  }
+  requireAdmin(i);
+  await i.deferReply(hidden);
+  if(sub==='install'){
+   try{
+    await installYtDlp();
+    const info=await ytDlpVersion();
+    return i.editReply({content:info.ok?'✅ Zainstalowano yt-dlp '+info.description+'. Użyj /play z linkiem YouTube.':'⚠️ Pobrano yt-dlp, lecz nie działa: '+info.description});
+   }catch(e){return i.editReply({content:'❌ Instalacja YouTube: '+clean(e.message)});}
+  }
+  try{
+   const url=normalizeYouTubeUrl(i.options.getString('url',true));
+   const report=await diagnoseYouTube(url);
+   return i.editReply({content:report.ok?'✅ YouTube dostępny: '+clean(report.title||'film'):'❌ YouTube: '+clean(report.message)+' | kod: '+(report.code===null?'brak':report.code)});
+  }catch(e){return i.editReply({content:'❌ '+clean(e.message)});}
+ }
  if(n==='play'||n==='testaudio'){
   const x=n==='testaudio'?localFile('demo.wav'):classifyInput(i.options.getString('source',true),store.read(i.guildId).radios);
-  if(x.kind==='youtube-link'||x.kind==='spotify-link')return i.reply({content:
-   'Rozpoznano '+x.title+'. Oficjalne API nie udostępnia pełnego strumienia audio do retransmisji na Discorda. Podaj plik music/ lub uprawniony strumień.',...hidden});
+  if(x.kind==='spotify-link')return i.reply({content:'Spotify nie udostępnia bezpośredniego audio dla tego bota. Wybierz plik lub uprawniony strumień.',...hidden});
+  if(x.kind==='youtube-link'){
+   const url=normalizeYouTubeUrl(x.source);
+   if(!ytDlpPath())return i.reply({content:'⚠️ YouTube wymaga konfiguracji. Administrator: /youtube install.',...hidden});
+   x.source=url;
+   x.title='YouTube • '+new URL(url).searchParams.get('v');
+  }
   if(x.kind==='stream')requireAdmin(i);
   join(i).enqueue(x);return i.reply({content:'✅ Dodano: '+clean(x.title)});
  }

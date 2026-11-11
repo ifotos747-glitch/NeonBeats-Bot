@@ -71,3 +71,12 @@ Komenda `/radio diagnoza` dodatkowo wykonuje z ALTARE test HTTP przy użyciu Nod
 ### Poprawka radia 1.0.4 — przekierowania i SIGSEGV
 
 Podczas testów na ALTARE pojawił się kod HTTP 302 oraz awaria FFmpeg z sygnałem SIGSEGV podczas otwierania URL. Dla zwykłych strumieni MP3/AAC i plików audio NeonBeats pobiera teraz HTTP przez Node.js, waliduje adres przy każdym przekierowaniu (maks. pięć) i przesyła dane do FFmpeg wejściem pipe:0. To omija sieciową część FFmpeg, która uległa awarii. Linki do playlist HLS/M3U/PLS zachowują dotychczasową obsługę przez FFmpeg. Diagnostyka HTTP sprawdza teraz końcową odpowiedź po przekierowaniach. Jeśli źródło zwraca HTML, błąd 403 lub nie dostarcza danych audio, bot pokaże błąd zamiast pozornego odtwarzania. Nie oznacza to automatycznie uprawnienia do retransmisji strumienia.
+
+
+### NeonBeats 1.1.0 — YouTube (beta)
+
+Komenda `/play source:<URL YouTube>` dodaje do kolejki pojedynczy film YouTube i próbuje odtwarzać audio przez yt-dlp → FFmpeg → Discord. Zachowane są funkcje radia, AutoDJ i lokalnych plików.
+
+Na ALTARE uruchom bota z Node.js 24, następnie jako administrator serwera Discord wykonaj `/youtube install`. Bot pobierze oficjalne yt-dlp_linux 2026.10.26 (około 40 MB) do folderu bin/, sprawdzi SHA-256 i ustawi uprawnienia. Hosting musi pozwolić pobrać i uruchomić ten plik. Zamiast tego możesz ustawić `YTDLP_PATH` w prywatnym `.env`.
+
+Nowe komendy: `/youtube install`, `/youtube status`, `/youtube diagnoza url:<link>` (instalacja i diagnoza wymagają Zarządzania serwerem). Linki pojedynczych filmów: watch, youtu.be, shorts i live; playlisty nie są importowane. yt-dlp używa Node.js jako środowiska JavaScript przez `--js-runtimes node:<ścieżka>`. Nie podawaj cookies ani prywatnego logowania. YouTube może ograniczać dostęp z IP hostingu; skuteczność na ALTARE wymaga testów. Odtwarzaj tylko materiały, do których masz stosowne prawa.

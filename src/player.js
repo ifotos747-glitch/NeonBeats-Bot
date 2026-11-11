@@ -2,6 +2,7 @@
 const fs=require('node:fs'),path=require('node:path');
 const {spawn}=require('node:child_process');
 const {pipeHttpAudio}=require('./network');
+const {spawnYouTube,cleanYtdlpError}=require('./youtube');
 const {joinVoiceChannel,createAudioPlayer,createAudioResource,AudioPlayerStatus,VoiceConnectionStatus,NoSubscriberBehavior,StreamType,entersState}=require('@discordjs/voice');
 const {MUSIC,ffmpegPath,IDLE_MINUTES}=require('./config');
 const {musicFiles}=require('./media'),{filterFor}=require('./effects'),store=require('./store');
@@ -13,7 +14,7 @@ class MusicSession{
   this.guildId=guild.id;this.channelId=voiceChannel.id;this.textChannel=textChannel;
   this.queue=[];this.current=null;this.volume=85;this.autodj=false;this.autodjIndex=0;
   this.alwaysOn=null;this.dj=store.read(guild.id).dj;
-  this.process=null;this.netAbort=null;this.timer=null;this.retry=null;this.startupTimer=null;this.blockUntil=0;
+  this.process=null;this.ytProcess=null;this.netAbort=null;this.timer=null;this.retry=null;this.startupTimer=null;this.blockUntil=0;
   this.lastError='';this.closed=false;this.starting=false;this.retryCount=0;
   this.connection=joinVoiceChannel({channelId:voiceChannel.id,guildId:guild.id,adapterCreator:guild.voiceAdapterCreator,selfDeaf:true,selfMute:false});
   this.player=createAudioPlayer({behaviors:{noSubscriber:NoSubscriberBehavior.Pause}});
@@ -32,6 +33,7 @@ class MusicSession{
  setRetry(ms){clearTimeout(this.retry);this.retry=setTimeout(()=>{this.retry=null;void this.startNext();},ms);this.retry.unref?.();}
  cleanProcess(){clearTimeout(this.startupTimer);this.startupTimer=null;
    if(this.netAbort){this.netAbort.abort();this.netAbort=null;}
+   if(this.ytProcess){const yt=this.ytProcess;this.ytProcess=null;try{yt.kill('SIGKILL');}catch{}}
    if(this.process){const p=this.process;this.process=null;if(!p.killed)try{p.kill('SIGKILL');}catch{}}
  }
  chooseNext(){
@@ -112,17 +114,39 @@ class MusicSession{
    if(this.netAbort===controller)this.netAbort=null;
   }
  }
+ feedYouTube(track,child){
+  let yt;
+  try{yt=spawnYouTube(track.source);}
+  catch(err){this.fail('YouTube: '+errorText(err.message));return;}
+  this.ytProcess=yt;
+  let transferred=0,stderr='';
+  yt.stdout.on('data',b=>{transferred+=b.length;});
+  yt.stderr.on('data',b=>{stderr=(stderr+b.toString()).slice(-3500);});
+  yt.stdout.pipe(child.stdin);
+  child.stdin.on('error',()=>{});
+  yt.once('error',err=>{
+   if(this.ytProcess===yt&&this.process===child)this.fail('yt-dlp: '+(err.code||err.message));
+  });
+  yt.once('close',(code,signal)=>{
+   if(this.ytProcess!==yt||this.process!==child||this.closed)return;
+   this.ytProcess=null;
+   if(code!==0||transferred===0){
+    this.fail('YouTube: '+cleanYtdlpError(stderr)+' (kod: '+(code??'brak')+', sygnał: '+(signal||'brak')+')');
+   }
+  });
+ }
  beginPlayback(track){
   // Avoid FFmpeg's network reader (SIGSEGV on some hosts) for MP3/AAC-style radio.
   // Preserve native FFmpeg handling of HLS/playlist manifests.
-  const viaNode=track.kind!=='file'&&!/\.(?:m3u8|m3u|pls)(?:$|[?#])/i.test(track.source);
+  const viaYouTube=track.kind==='youtube-link';
+  const viaNode=track.kind!=='file'&&!viaYouTube&&!/\.(?:m3u8|m3u|pls)(?:$|[?#])/i.test(track.source);
   const input=track.kind==='file'?['-i',path.join(MUSIC,track.source)]
-    :viaNode?['-i','pipe:0']
+    :(viaNode||viaYouTube)?['-i','pipe:0']
     :['-reconnect','1','-reconnect_streamed','1','-reconnect_delay_max','4','-rw_timeout','15000000','-i',track.source];
   const filter=filterFor(this.dj);
   const args=['-nostdin','-hide_banner','-loglevel','error',...input,'-vn','-sn','-dn',...(filter?['-af',filter]:[]),
     '-ac','2','-ar','48000','-f','s16le','pipe:1'];
-  const child=spawn(ffmpegPath(),args,{stdio:[viaNode?'pipe':'ignore','pipe','pipe'],windowsHide:true});
+  const child=spawn(ffmpegPath(),args,{stdio:[(viaNode||viaYouTube)?'pipe':'ignore','pipe','pipe'],windowsHide:true});
   this.process=child;let bytes=0,stderr='';
   child.stdout.on('data',b=>{bytes+=b.length;});
   child.stderr.on('data',b=>{stderr=(stderr+b.toString()).slice(-1300);});
@@ -136,6 +160,7 @@ class MusicSession{
   this.resource.volume.setVolume(this.volume/100);
   this.player.play(this.resource);
   if(viaNode)void this.feedNetwork(track,child);
+  if(viaYouTube)this.feedYouTube(track,child);
   this.announce('🎶 NeonBeats teraz gra: '+clean(track.title)+' · DJ: '+this.dj);
   this.startupTimer=setTimeout(()=>{
     if(this.current===track&&this.player.state.status!==AudioPlayerStatus.Playing)this.fail('Dźwięk nie wystartował w 30 sekund.');

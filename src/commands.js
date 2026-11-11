@@ -18,6 +18,11 @@ const commands=[
  new SlashCommandBuilder().setName('panel').setDescription('Panel sterowania NeonBeats'),
  new SlashCommandBuilder().setName('files').setDescription('Pokaż pliki w music/'),
  new SlashCommandBuilder().setName('testaudio').setDescription('Odtwórz własny testowy dźwięk'),
+ new SlashCommandBuilder().setName('youtube').setDescription('YouTube: silnik, instalacja i diagnostyka')
+   .addSubcommand(s=>s.setName('status').setDescription('Sprawdź silnik yt-dlp'))
+   .addSubcommand(s=>s.setName('install').setDescription('Zainstaluj oficjalne yt-dlp (administrator)'))
+   .addSubcommand(s=>s.setName('diagnoza').setDescription('Sprawdź dostęp do filmu YouTube')
+     .addStringOption(o=>o.setName('url').setDescription('Link YouTube').setRequired(true))),
  new SlashCommandBuilder().setName('radio').setDescription('Stacje radiowe')
    .addSubcommand(s=>s.setName('list').setDescription('Pokaż stacje'))
    .addSubcommand(s=>s.setName('play').setDescription('Odtwórz stację').addStringOption(named))

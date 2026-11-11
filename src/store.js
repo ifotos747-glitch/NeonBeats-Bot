@@ -40,7 +40,7 @@ function savePlaylist(id,name,tracks){
  if(!name||/[@\n\r`]/.test(name))throw Error('Nieprawidłowa nazwa playlisty.');
  const d=read(id);
  if(!Object.hasOwn(d.playlists,name)&&Object.keys(d.playlists).length>=25)throw Error('Limit 25 playlist.');
- d.playlists[name]=tracks.filter(x=>x&&['file','radio','stream'].includes(x.kind)).slice(0,100).map(t=>({kind:t.kind,source:t.source,title:t.title,stationId:t.stationId}));
+ d.playlists[name]=tracks.filter(x=>x&&['file','radio','stream','youtube-link'].includes(x.kind)).slice(0,100).map(t=>({kind:t.kind,source:t.source,title:t.title,stationId:t.stationId}));
  write(id,d);return d.playlists[name].length;
 }
 function loadPlaylist(id,name){

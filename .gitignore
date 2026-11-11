@@ -12,3 +12,6 @@ music/*
 *.jks
 client_secret*.json
 .DS_Store
+
+# Oficjalne binarium yt-dlp pobierane na hostingu przez /youtube install
+bin/

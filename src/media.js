@@ -44,6 +44,11 @@ function classifyInput(raw,radios=[]){
 function restoreTrack(obj){
  if(!obj||typeof obj!=='object')throw Error('Nieprawidłowy utwór na playliście.');
  if(obj.kind==='file')return localFile(obj.source);
+ if(obj.kind==='youtube-link'){
+  const u=validatePublicUrl(obj.source);
+  if(!YT.has(u.hostname.toLowerCase()))throw Error('Niewłaściwy link YouTube.');
+  return{kind:'youtube-link',source:u.href,title:String(obj.title||'YouTube').slice(0,140)};
+ }
  if(['radio','stream'].includes(obj.kind)){
  const u=validatePublicUrl(obj.source);
  if(YT.has(u.hostname)||SPOTIFY.has(u.hostname))throw Error('YouTube i Spotify nie są bezpośrednim audio.');
