@@ -60,6 +60,49 @@ function diagnoseLocalFFmpeg(options={}) {
   '-t','1','-ac','2','-ar','48000','-f','s16le','pipe:1'
  ],{timeoutMs:7000,...options});
 }
+
+async function diagnoseHttp(rawUrl,{fetchImpl=fetch,timeoutMs=8000}={}) {
+ const url=validatePublicUrl(rawUrl).href;
+ const startedAt=Date.now();
+ const result={ok:false,status:null,type:'',bytes:0,redirectHost:'',error:'',durationMs:0};
+ try{
+  const response=await fetchImpl(url,{
+   method:'GET',redirect:'manual',signal:AbortSignal.timeout(timeoutMs),
+   headers:{'User-Agent':'NeonBeatsBot/1.0','Accept':'*/*','Icy-MetaData':'0'}
+  });
+  result.status=response.status;
+  result.type=String(response.headers.get('content-type')||'').slice(0,70);
+  if(response.status>=300&&response.status<400){
+   const location=response.headers.get('location');
+   if(location)try{
+    const next=validatePublicUrl(new URL(location,url).href);
+    result.redirectHost=next.hostname.slice(0,100);
+   }catch{result.error='Przekierowanie na niedozwolony adres';}
+  }
+  if(response.ok&&response.body){
+   const reader=response.body.getReader();
+   try{
+    const {value}=await reader.read();
+    result.bytes=value?.byteLength||0;
+   }finally{void reader.cancel().catch(()=>{});}
+  }
+  result.ok=response.ok&&result.bytes>0;
+ }catch(err){
+  result.error=String(err?.cause?.code||err?.code||err?.name||'UNKNOWN').slice(0,80);
+  if(err?.name==='TimeoutError'||err?.name==='AbortError')result.error='TIMEOUT';
+ }
+ result.durationMs=Date.now()-startedAt;
+ return result;
+}
+function httpText(r){
+ return (r.ok?'✅ dane odebrane':'❌ brak danych')+
+  ' | HTTP: '+(r.status===null?'brak':r.status)+
+  ' | typ: '+(r.type||'brak')+
+  ' | '+r.bytes+' B | '+r.durationMs+' ms'+
+  (r.redirectHost?' | przekierowanie: '+r.redirectHost:'')+
+  (r.error?' | błąd: '+r.error:'');
+}
+
 function probeText(r){
  return (r.ok?'✅ audio':'❌ brak audio')+
   ' | '+r.bytes+' B'+
@@ -68,10 +111,11 @@ function probeText(r){
   ' | '+r.durationMs+' ms'+
   (r.timedOut?' | LIMIT CZASU':'');
 }
-function formatDiagnostic(name,stream,local=null){
+function formatDiagnostic(name,stream,local=null,http=null){
  const safeName=String(name||'stacja').replace(/[@<>\x60\r\n]/g,' ').slice(0,70);
  let body='🔎 NeonBeats — diagnoza: '+safeName+
-  '\n📻 Strumień: '+probeText(stream)+
+  '\n🌐 Test HTTP Node.js: '+(http?httpText(http):'nie uruchomiono')+
+  '\n📻 Strumień FFmpeg: '+probeText(stream)+
   (local?'\n🧪 Test lokalny FFmpeg: '+probeText(local):'')+
   (stream.error?'\nBłąd procesu strumienia: '+stream.error:'')+
   (stream.details?'\n\nFFmpeg — strumień:\n'+stream.details:'\n\nFFmpeg — strumień: brak dodatkowego opisu.')+
@@ -79,4 +123,4 @@ function formatDiagnostic(name,stream,local=null){
   (!local?.ok&&local?.details?'\n\nFFmpeg — test lokalny:\n'+local.details:'');
  return body.slice(0,1900);
 }
-module.exports={probeFFmpeg,diagnoseStream,diagnoseLocalFFmpeg,formatDiagnostic,redactFFmpeg};
+module.exports={probeFFmpeg,diagnoseStream,diagnoseLocalFFmpeg,diagnoseHttp,formatDiagnostic,redactFFmpeg};
