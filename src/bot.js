@@ -32,21 +32,26 @@ function voice(i){const m=i.guild?.members.cache.get(i.user.id)||i.member,v=m?.v
 function getSession(i){const s=sessions.get(i.guildId);if(!s)throw Error('Bot nie jest połączony.');
  if(voice(i).id!==s.channelId)throw Error('Dołącz do kanału, na którym jest bot.');return s;}
 function join(i){return ensureSession(i.guild,voice(i),i.channel);}
-async function enqueueYoutubePlaylist(i,source){
+async function enqueueYoutubePlaylist(i,source,{start=1,limit=MAX_PLAYLIST_ITEMS}={}){
  // Validate channel before contacting YouTube; no voice connection created yet.
  voice(i);
  if(!ytDlpPath())throw Error('Brak yt-dlp. Administrator: /youtube install.');
  const url=String(source||'');
- const result=await loadYoutubePlaylist(url);
+ const s0=sessions.get(i.guildId);
+ if(s0&&!s0.closed&&s0.queue.length>=100)throw Error('Kolejka jest pełna (100 utworów).');
+ const result=await loadYoutubePlaylist(url,{start,limit});
  const s=join(i);
  const available=100-s.queue.length;
  if(available<1)throw Error('Kolejka jest pełna (100 utworów).');
  const tracks=result.tracks.slice(0,available);
  s.enqueueMany(tracks);
- return '✅ Playlista YouTube: dodano '+tracks.length+' utworów do kolejki (maks. '+MAX_PLAYLIST_ITEMS+' na import).'+
-   (result.skipped?' Pominięto niedostępnych lub błędnych: '+result.skipped+'.':'')+
-   (result.partial?' Niektóre pozycje mogły być niedostępne.':'')+
-   (tracks.length<result.tracks.length?' Kolejka osiągnęła limit 100.':'');
+ return '✅ Playlista YouTube: dodano '+tracks.length+' utworów. Sprawdzony zakres: '+start+'–'+(start+limit-1)+'.'+
+   '\nPominięto w otrzymanych metadanych: '+result.skipped+' (prywatne/niedostępne: '+result.reasons.unavailable+
+   ', nierozpoznane identyfikatory: '+result.reasons.unrecognized+
+   ', nieprawidłowe dane: '+result.reasons.invalidMetadata+').'+
+   (result.partial?'\n⚠️ yt-dlp zgłosił problemy podczas odczytu.':'')+
+   (tracks.length<result.tracks.length?'\n⚠️ Limit kolejki: nie wszystkie odczytane utwory dodano.':'')+
+   '\nUwaga: YouTube może nie udostępniać audio każdego filmu podczas odtwarzania.';
 }
 function queueMessage(s){if(!s)return 'Kolejka jest pusta.';
  return [s.current?'Teraz gra: '+clean(s.current.title):'Nic nie gra',
@@ -94,7 +99,9 @@ async function slash(i){
   if(sub==='playlista'){
    await i.deferReply(hidden);
    try{
-    const message=await enqueueYoutubePlaylist(i,i.options.getString('url',true));
+    const message=await enqueueYoutubePlaylist(i,i.options.getString('url',true),{
+     start:i.options.getInteger('od')||1,limit:i.options.getInteger('ile')||MAX_PLAYLIST_ITEMS
+    });
     return i.editReply({content:message,allowedMentions:{parse:[]}});
    }catch(err){return i.editReply({content:'⚠️ '+clean(err.message)});}
   }

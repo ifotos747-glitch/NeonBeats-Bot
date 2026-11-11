@@ -32,7 +32,8 @@ function youtubeArgs(url,download){
  return [
   '--ignore-config','--no-playlist','--no-progress','--no-color',
   '--js-runtimes','node:'+process.execPath,
-  '--socket-timeout','20','-f','bestaudio/best',
+  '--socket-timeout','25','--retries','3','--fragment-retries','3','--extractor-retries','3',
+  '-f','bestaudio/best',
   ...(download?['-o','-']:['--skip-download','--print','%(title)s']),
   '--',normalizeYouTubeUrl(url)
  ];

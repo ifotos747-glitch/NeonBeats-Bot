@@ -22,7 +22,9 @@ const commands=[
    .addSubcommand(s=>s.setName('status').setDescription('Sprawdź silnik yt-dlp'))
    .addSubcommand(s=>s.setName('install').setDescription('Zainstaluj oficjalne yt-dlp (administrator)'))
    .addSubcommand(s=>s.setName('playlista').setDescription('Dodaj filmy z playlisty YouTube do kolejki')
-     .addStringOption(o=>o.setName('url').setDescription('Link do playlisty YouTube').setRequired(true)))
+     .addStringOption(o=>o.setName('url').setDescription('Link do playlisty YouTube').setRequired(true))
+     .addIntegerOption(o=>o.setName('od').setDescription('Od której pozycji playlisty (domyślnie 1)').setMinValue(1).setMaxValue(10000))
+     .addIntegerOption(o=>o.setName('ile').setDescription('Ile pozycji pobrać, maksymalnie 100').setMinValue(1).setMaxValue(100)))
    .addSubcommand(s=>s.setName('diagnoza').setDescription('Sprawdź dostęp do filmu YouTube')
      .addStringOption(o=>o.setName('url').setDescription('Link YouTube').setRequired(true))),
  new SlashCommandBuilder().setName('radio').setDescription('Stacje radiowe')

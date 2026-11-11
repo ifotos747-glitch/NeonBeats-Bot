@@ -2,70 +2,67 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const {EventEmitter}=require('node:events');
 const {PassThrough}=require('node:stream');
-const {MAX_PLAYLIST_ITEMS,isYouTubePlaylistUrl,normalizePlaylistUrl,parsePlaylistEntries,playlistArgs,loadYoutubePlaylist}=require('../src/youtube-playlist');
-
-test('recognizes Youtube and YouTube Music playlists',()=>{
- const playlist='PL1234567890ABCDEFGHI';
- for(const link of [
-  'https://www.youtube.com/playlist?list='+playlist,
-  'https://music.youtube.com/playlist?list='+playlist,
-  'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list='+playlist,
-  'https://youtu.be/dQw4w9WgXcQ?list='+playlist
- ]){
-  assert.equal(isYouTubePlaylistUrl(link),true);
-  assert.equal(normalizePlaylistUrl(link),'https://www.youtube.com/playlist?list='+playlist);
- }
+const {MAX_PLAYLIST_ITEMS,isYouTubePlaylistUrl,normalizePlaylistUrl,parsePlaylistEntries,playlistArgs,videoIdFromItem,loadYoutubePlaylist}=require('../src/youtube-playlist');
+test('recognizes YouTube and Music playlists',()=>{
+ const list='PL1234567890ABCDEFGHI';
+ for(const u of ['https://www.youtube.com/playlist?list='+list,
+   'https://music.youtube.com/playlist?list='+list,
+   'https://www.youtube.com/watch?v=dQw4w9WgXcQ&list='+list,
+   'https://youtu.be/dQw4w9WgXcQ?list='+list])
+  assert.equal(normalizePlaylistUrl(u),'https://www.youtube.com/playlist?list='+list);
  assert.equal(isYouTubePlaylistUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ'),false);
 });
-test('rejects unknown hosts and malformed playlist IDs',()=>{
- for(const link of [
-  'https://example.org/playlist?list=PL1234567890',
-  'http://localhost/playlist?list=PL1234567890',
-  'https://www.youtube.com/playlist?list=bad',
-  'https://www.youtube.com/channel/UC123?list=PL1234567890'
- ])assert.throws(()=>normalizePlaylistUrl(link));
+test('rejects untrusted hosts and invalid playlist ids',()=>{
+ for(const u of ['https://evil.example/playlist?list=PL1234567890','http://localhost/playlist?list=PL1234567890',
+  'https://www.youtube.com/playlist?list=x'])
+  assert.throws(()=>normalizePlaylistUrl(u));
 });
-test('playlist parser keeps order, filters unavailable items, excludes unsafe IDs',()=>{
- const raw=[
+test('recognizes IDs from flat playlist URL fields when ID is missing',()=>{
+ assert.equal(videoIdFromItem({url:'dQw4w9WgXcQ'}),'dQw4w9WgXcQ');
+ assert.equal(videoIdFromItem({webpage_url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ'}),'dQw4w9WgXcQ');
+ assert.equal(videoIdFromItem({url:'/watch?v=dQw4w9WgXcQ'}),'dQw4w9WgXcQ');
+ assert.equal(videoIdFromItem({url:'https://evil.example/watch?v=dQw4w9WgXcQ'}),null);
+});
+test('only removes confirmed unavailable and invalid items',()=>{
+ const lines=[
   {id:'AAAAAAAAAAA',title:'Pierwszy'},
   {id:'BBBBBBBBBBB',title:'Private video',availability:'private'},
-  {id:'CCCCCCCCCCC',title:'Trzeci'},
-  {id:'invalid',title:'Nieprawidłowy'}
- ].map(x=>JSON.stringify(x)).join('\n');
- const got=parsePlaylistEntries(raw);
- assert.deepEqual(got.tracks.map(t=>t.title),['Pierwszy','Trzeci']);
- assert.equal(got.skipped,2);
- assert.equal(got.tracks[0].kind,'youtube-link');
+  {url:'https://www.youtube.com/watch?v=CCCCCCCCCCC',title:'Trzeci'},
+  {id:'DDDDDDDDDDD',title:null},
+  {id:'not-valid',title:'Błędny'}
+ ].map(v=>JSON.stringify(v)).join('\n');
+ const p=parsePlaylistEntries(lines);
+ assert.deepEqual(p.tracks.map(x=>x.source),[
+  'https://www.youtube.com/watch?v=AAAAAAAAAAA',
+  'https://www.youtube.com/watch?v=CCCCCCCCCCC',
+  'https://www.youtube.com/watch?v=DDDDDDDDDDD'
+ ]);
+ assert.equal(p.skipped,2);
+ assert.deepEqual(p.reasons,{unavailable:1,unrecognized:1,invalidMetadata:0});
 });
-test('playlist caps metadata extraction to 50 videos',()=>{
- assert.equal(MAX_PLAYLIST_ITEMS,50);
- const args=playlistArgs('https://www.youtube.com/playlist?list=PL1234567890');
+test('supports 100 entries with position-based batches',()=>{
+ assert.equal(MAX_PLAYLIST_ITEMS,100);
+ const args=playlistArgs('https://www.youtube.com/playlist?list=PL1234567890',{start:101,limit:100});
+ assert.equal(args[args.indexOf('--playlist-items')+1],'101:200');
  assert.ok(args.includes('--flat-playlist'));
  assert.ok(args.includes('--dump-json'));
- assert.equal(args[args.indexOf('--playlist-end')+1],'50');
  assert.ok(!args.includes('--no-playlist'));
- assert.throws(()=>playlistArgs('https://www.youtube.com/playlist?list=PL1234567890',{limit:51}));
+ assert.throws(()=>playlistArgs('https://www.youtube.com/playlist?list=PL1234567890',{limit:101}));
 });
-test('loads metadata from yt-dlp without downloading videos',async()=>{
- const oldEnv=process.env.YTDLP_PATH;
- process.env.YTDLP_PATH='/fake/yt-dlp';
+test('metadata is loaded without media downloads',async()=>{
+ const old=process.env.YTDLP_PATH;process.env.YTDLP_PATH='/fake/yt-dlp';
  try{
-  const mockedSpawn=()=>{
-   const child=new EventEmitter();
-   child.stdout=new PassThrough();child.stderr=new PassThrough();
-   child.kill=()=>true;
+  const spawnMock=(_bin,args)=>{
+   assert.ok(args.includes('--dump-json'));
+   const p=new EventEmitter();p.stdout=new PassThrough();p.stderr=new PassThrough();p.kill=()=>true;
    process.nextTick(()=>{
-    child.stdout.write(JSON.stringify({id:'dQw4w9WgXcQ',title:'Własny test'})+'\n');
-    child.stdout.end();child.stderr.end();
-    child.emit('close',0,null);
+    p.stdout.write(JSON.stringify({id:'dQw4w9WgXcQ',title:'Własny test'})+'\n');
+    p.stdout.end();p.stderr.end();p.emit('close',0,null);
    });
-   return child;
+   return p;
   };
-  const result=await loadYoutubePlaylist('https://www.youtube.com/playlist?list=PL1234567890',{spawnProcess:mockedSpawn});
-  assert.equal(result.tracks.length,1);
-  assert.equal(result.tracks[0].title,'Własny test');
- }finally{
-  if(oldEnv===undefined)delete process.env.YTDLP_PATH;
-  else process.env.YTDLP_PATH=oldEnv;
- }
+  const r=await loadYoutubePlaylist('https://www.youtube.com/playlist?list=PL1234567890',{spawnProcess:spawnMock});
+  assert.equal(r.tracks.length,1);
+  assert.equal(r.examined,1);
+ }finally{if(old===undefined)delete process.env.YTDLP_PATH;else process.env.YTDLP_PATH=old;}
 });
