@@ -101,7 +101,7 @@ class MusicSession{
   const deadline=setTimeout(()=>controller.abort(),16000);
   deadline.unref?.();
   try{
-   await pipeHttpAudio(track.source,child.stdin,{signal:controller.signal});
+   await pipeHttpAudio(track.source,child.stdin,{signal:controller.signal,onConnected:()=>clearTimeout(deadline)});
   }catch(err){
    if(!this.closed&&this.process===child){
     const reason=controller.signal.aborted?'upłynął limit połączenia HTTP':errorText(err?.message||err);

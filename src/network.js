@@ -36,8 +36,9 @@ async function openAudioResponse(rawUrl,{fetchImpl=fetch,signal,maxRedirects=5}=
  throw Error('Zbyt wiele przekierowań HTTP');
 }
 
-async function pipeHttpAudio(url,destination,{signal,fetchImpl=fetch}={}){
+async function pipeHttpAudio(url,destination,{signal,fetchImpl=fetch,onConnected}={}){
  const {response}=await openAudioResponse(url,{signal,fetchImpl});
+ if(onConnected)onConnected();
  await pipeline(Readable.fromWeb(response.body),destination,{signal});
 }
 module.exports={openAudioResponse,pipeHttpAudio};
