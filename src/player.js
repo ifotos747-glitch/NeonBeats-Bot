@@ -1,6 +1,7 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path');
 const {spawn}=require('node:child_process');
+const {pipeHttpAudio}=require('./network');
 const {joinVoiceChannel,createAudioPlayer,createAudioResource,AudioPlayerStatus,VoiceConnectionStatus,NoSubscriberBehavior,StreamType,entersState}=require('@discordjs/voice');
 const {MUSIC,ffmpegPath,IDLE_MINUTES}=require('./config');
 const {musicFiles}=require('./media'),{filterFor}=require('./effects'),store=require('./store');
@@ -12,7 +13,7 @@ class MusicSession{
   this.guildId=guild.id;this.channelId=voiceChannel.id;this.textChannel=textChannel;
   this.queue=[];this.current=null;this.volume=85;this.autodj=false;this.autodjIndex=0;
   this.alwaysOn=null;this.dj=store.read(guild.id).dj;
-  this.process=null;this.timer=null;this.retry=null;this.startupTimer=null;this.blockUntil=0;
+  this.process=null;this.netAbort=null;this.timer=null;this.retry=null;this.startupTimer=null;this.blockUntil=0;
   this.lastError='';this.closed=false;this.starting=false;this.retryCount=0;
   this.connection=joinVoiceChannel({channelId:voiceChannel.id,guildId:guild.id,adapterCreator:guild.voiceAdapterCreator,selfDeaf:true,selfMute:false});
   this.player=createAudioPlayer({behaviors:{noSubscriber:NoSubscriberBehavior.Pause}});
@@ -30,6 +31,7 @@ class MusicSession{
  clearTimer(){clearTimeout(this.timer);this.timer=null;}
  setRetry(ms){clearTimeout(this.retry);this.retry=setTimeout(()=>{this.retry=null;void this.startNext();},ms);this.retry.unref?.();}
  cleanProcess(){clearTimeout(this.startupTimer);this.startupTimer=null;
+   if(this.netAbort){this.netAbort.abort();this.netAbort=null;}
    if(this.process){const p=this.process;this.process=null;if(!p.killed)try{p.kill('SIGKILL');}catch{}}
  }
  chooseNext(){
@@ -92,13 +94,35 @@ class MusicSession{
       setImmediate(()=>void this.startNext());
   }
  }
+ async feedNetwork(track,child){
+  const controller=new AbortController();
+  this.netAbort=controller;
+  // Header timeout only; live audio is intentionally streamed indefinitely.
+  const deadline=setTimeout(()=>controller.abort(),16000);
+  deadline.unref?.();
+  try{
+   await pipeHttpAudio(track.source,child.stdin,{signal:controller.signal});
+  }catch(err){
+   if(!this.closed&&this.process===child){
+    const reason=controller.signal.aborted?'upłynął limit połączenia HTTP':errorText(err?.message||err);
+    this.fail('Pobieranie radia: '+reason);
+   }
+  }finally{
+   clearTimeout(deadline);
+   if(this.netAbort===controller)this.netAbort=null;
+  }
+ }
  beginPlayback(track){
+  // Avoid FFmpeg's network reader (SIGSEGV on some hosts) for MP3/AAC-style radio.
+  // Preserve native FFmpeg handling of HLS/playlist manifests.
+  const viaNode=track.kind!=='file'&&!/\.(?:m3u8|m3u|pls)(?:$|[?#])/i.test(track.source);
   const input=track.kind==='file'?['-i',path.join(MUSIC,track.source)]
+    :viaNode?['-i','pipe:0']
     :['-reconnect','1','-reconnect_streamed','1','-reconnect_delay_max','4','-rw_timeout','15000000','-i',track.source];
   const filter=filterFor(this.dj);
   const args=['-nostdin','-hide_banner','-loglevel','error',...input,'-vn','-sn','-dn',...(filter?['-af',filter]:[]),
     '-ac','2','-ar','48000','-f','s16le','pipe:1'];
-  const child=spawn(ffmpegPath(),args,{stdio:['ignore','pipe','pipe'],windowsHide:true});
+  const child=spawn(ffmpegPath(),args,{stdio:[viaNode?'pipe':'ignore','pipe','pipe'],windowsHide:true});
   this.process=child;let bytes=0,stderr='';
   child.stdout.on('data',b=>{bytes+=b.length;});
   child.stderr.on('data',b=>{stderr=(stderr+b.toString()).slice(-1300);});
@@ -111,6 +135,7 @@ class MusicSession{
   this.resource=createAudioResource(child.stdout,{inputType:StreamType.Raw,inlineVolume:true,metadata:track});
   this.resource.volume.setVolume(this.volume/100);
   this.player.play(this.resource);
+  if(viaNode)void this.feedNetwork(track,child);
   this.announce('🎶 NeonBeats teraz gra: '+clean(track.title)+' · DJ: '+this.dj);
   this.startupTimer=setTimeout(()=>{
     if(this.current===track&&this.player.state.status!==AudioPlayerStatus.Playing)this.fail('Dźwięk nie wystartował w 30 sekund.');

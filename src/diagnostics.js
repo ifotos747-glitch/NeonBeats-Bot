@@ -2,6 +2,7 @@
 const {spawn}=require('node:child_process');
 const {ffmpegPath}=require('./config');
 const {validatePublicUrl}=require('./media');
+const {openAudioResponse}=require('./network');
 
 function redactFFmpeg(raw) {
  return String(raw||'')
@@ -61,45 +62,41 @@ function diagnoseLocalFFmpeg(options={}) {
  ],{timeoutMs:7000,...options});
 }
 
-async function diagnoseHttp(rawUrl,{fetchImpl=fetch,timeoutMs=8000}={}) {
- const url=validatePublicUrl(rawUrl).href;
+async function diagnoseHttp(rawUrl,{fetchImpl=fetch,timeoutMs=9000}={}){
  const startedAt=Date.now();
- const result={ok:false,status:null,type:'',bytes:0,redirectHost:'',error:'',durationMs:0};
+ const result={ok:false,status:null,type:'',bytes:0,redirectHost:'',redirects:0,error:'',durationMs:0};
+ const controller=new AbortController();
+ const timer=setTimeout(()=>controller.abort(),timeoutMs);
+ timer.unref?.();
  try{
-  const response=await fetchImpl(url,{
-   method:'GET',redirect:'manual',signal:AbortSignal.timeout(timeoutMs),
-   headers:{'User-Agent':'NeonBeatsBot/1.0','Accept':'*/*','Icy-MetaData':'0'}
-  });
+  const {response,finalHost,redirects}=await openAudioResponse(rawUrl,{fetchImpl,signal:controller.signal});
   result.status=response.status;
   result.type=String(response.headers.get('content-type')||'').slice(0,70);
-  if(response.status>=300&&response.status<400){
-   const location=response.headers.get('location');
-   if(location)try{
-    const next=validatePublicUrl(new URL(location,url).href);
-    result.redirectHost=next.hostname.slice(0,100);
-   }catch{result.error='Przekierowanie na niedozwolony adres';}
-  }
-  if(response.ok&&response.body){
-   const reader=response.body.getReader();
-   try{
-    const {value}=await reader.read();
-    result.bytes=value?.byteLength||0;
-   }finally{void reader.cancel().catch(()=>{});}
-  }
-  result.ok=response.ok&&result.bytes>0;
+  result.redirectHost=redirects?finalHost.slice(0,100):'';
+  result.redirects=redirects;
+  const reader=response.body.getReader();
+  try{
+   const {value}=await reader.read();
+   result.bytes=value?.byteLength||0;
+  }finally{void reader.cancel().catch(()=>{});}
+  result.ok=result.bytes>0;
  }catch(err){
-  result.error=String(err?.cause?.code||err?.code||err?.name||'UNKNOWN').slice(0,80);
-  if(err?.name==='TimeoutError'||err?.name==='AbortError')result.error='TIMEOUT';
+  const msg=String(err?.message||'');
+  const status=msg.match(/^HTTP ([0-9]{3})$/);
+  if(status)result.status=Number(status[1]);
+  result.error=controller.signal.aborted?'TIMEOUT':(status?'HTTP '+status[1]:String(err?.cause?.code||err?.code||err?.name||'ERROR').slice(0,70));
  }
+ clearTimeout(timer);
  result.durationMs=Date.now()-startedAt;
  return result;
 }
+
 function httpText(r){
  return (r.ok?'✅ dane odebrane':'❌ brak danych')+
   ' | HTTP: '+(r.status===null?'brak':r.status)+
   ' | typ: '+(r.type||'brak')+
   ' | '+r.bytes+' B | '+r.durationMs+' ms'+
-  (r.redirectHost?' | przekierowanie: '+r.redirectHost:'')+
+  (r.redirects?' | przekierowań: '+r.redirects+' → '+r.redirectHost:'')+
   (r.error?' | błąd: '+r.error:'');
 }
 

@@ -66,3 +66,8 @@ Użyj `/radio diagnoza nazwa:<nazwa stacji>` dla zapisanej stacji. Komenda testu
 ### Diagnostyka HTTP (1.0.3)
 
 Komenda `/radio diagnoza` dodatkowo wykonuje z ALTARE test HTTP przy użyciu Node.js, niezależny od FFmpeg. Pokazuje kod HTTP, typ odpowiedzi, liczbę pierwszych odebranych bajtów, host docelowy przekierowania i uproszczony błąd sieciowy. Nie podaje pełnych adresów ani tokenów w wiadomościach Discorda. Test HTTP nie podąża za przekierowaniami; przekierowanie 3xx jest informacją diagnostyczną, a nie dowodem awarii sieci.
+
+
+### Poprawka radia 1.0.4 — przekierowania i SIGSEGV
+
+Podczas testów na ALTARE pojawił się kod HTTP 302 oraz awaria FFmpeg z sygnałem SIGSEGV podczas otwierania URL. Dla zwykłych strumieni MP3/AAC i plików audio NeonBeats pobiera teraz HTTP przez Node.js, waliduje adres przy każdym przekierowaniu (maks. pięć) i przesyła dane do FFmpeg wejściem pipe:0. To omija sieciową część FFmpeg, która uległa awarii. Linki do playlist HLS/M3U/PLS zachowują dotychczasową obsługę przez FFmpeg. Diagnostyka HTTP sprawdza teraz końcową odpowiedź po przekierowaniach. Jeśli źródło zwraca HTML, błąd 403 lub nie dostarcza danych audio, bot pokaże błąd zamiast pozornego odtwarzania. Nie oznacza to automatycznie uprawnienia do retransmisji strumienia.
