@@ -173,9 +173,12 @@ class MusicSession{
   if(viaNode)void this.feedNetwork(track,child);
   if(viaYouTube)this.feedYouTube(track,child);
   this.announce('🎶 NeonBeats teraz gra: '+clean(track.title)+' · DJ: '+this.dj);
+  // YouTube extraction can take longer than direct local/radio audio.
+  const startupLimit=viaYouTube?90_000:30_000;
   this.startupTimer=setTimeout(()=>{
-    if(this.current===track&&this.player.state.status!==AudioPlayerStatus.Playing)this.fail('Dźwięk nie wystartował w 30 sekund.');
-  },30_000);this.startupTimer.unref?.();
+    if(this.current===track&&this.player.state.status!==AudioPlayerStatus.Playing)
+      this.fail(viaYouTube?'YouTube: nie uruchomiono audio w 90 sekundach. Sprawdź /youtube diagnoza.':'Dźwięk nie wystartował w 30 sekund.');
+  },startupLimit);this.startupTimer.unref?.();
   this.player.once(AudioPlayerStatus.Playing,()=>{clearTimeout(this.startupTimer);this.startupTimer=null;this.retryCount=0;});
  }
  destroy(){if(this.closed)return;this.closed=true;this.clearTimer();clearTimeout(this.retry);this.cleanProcess();
