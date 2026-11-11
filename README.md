@@ -58,3 +58,7 @@ GitHub Actions uruchamia testy przy push i pull request.
 ### Diagnostyka radia (1.0.1)
 
 Użyj `/radio diagnoza nazwa:<nazwa stacji>` dla zapisanej stacji. Komenda testuje 5 sekund audio przez FFmpeg z limitem czasu 20 sekund i pokazuje liczbę odebranych bajtów oraz odfiltrowany dziennik błędu. Wymaga uprawnienia Zarządzanie serwerem. Nie zmienia kolejki ani trybu 24/7.
+
+### Diagnostyka 1.0.2
+
+`/radio diagnoza` przeprowadza jednocześnie próbę pobrania pięciu sekund audio ze stacji i lokalny test dźwięku generowanego przez FFmpeg (bez sieci). Oprócz kodu zakończenia i liczby bajtów pokazuje sygnał zakończenia (np. SIGKILL), czas próby i przekroczenie limitu. Jeśli test lokalny działa, a test stacji nie, FFmpeg potrafi generować audio, ale to nie dowodzi jeszcze, dlaczego strumień jest niedostępny. Test nie nadaje muzyki na Discordzie.

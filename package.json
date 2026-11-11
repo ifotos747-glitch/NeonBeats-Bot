@@ -1,6 +1,6 @@
 {
   "name": "neonbeats-bot",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "NeonBeats Bot 1.0 — NEON GENESIS | Discord music, radio 24/7, AutoDJ, DJ effects and playlists",
   "main": "index.js",
