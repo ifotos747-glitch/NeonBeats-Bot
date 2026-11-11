@@ -1,3 +1,56 @@
-# NeonBeats Bot 1.0 — NEON GENESIS
+# 🎧 NeonBeats Bot 1.0 — NEON GENESIS
 
-Nowy, niezależny projekt bota muzycznego Discord. Szczegóły konfiguracji i funkcji w plikach projektu.
+Nowy, niezależny bot muzyczny Discord. **Nie jest kopią konta ani tokena BOBER MUSIC BOT.**
+
+## Funkcje
+
+- Muzyka z własnych plików MP3, WAV, OGG i legalnie udostępnionych strumieni HTTP(S).
+- Kolejka muzyki, pauza/wznów, pomijanie, głośność, panel sterowania z przyciskami.
+- Radio internetowe: zapis własnych stacji, odtwarzanie i zatrzymywanie.
+- Tryb **24/7**: radio / AutoDJ / ciche czuwanie. Ustawienia zapisane w data/.
+- **AutoDJ** automatycznie odtwarza własne pliki z music/.
+- Efekty DJ: bass, nightcore, slowed, 8d, echo, club.
+- Playlisty zapisane osobno dla serwerów Discord.
+- Bezpieczna klasyfikacja URL i ochrona przed adresami lokalnymi.
+- Testowy, oryginalny dźwięk `music/demo.wav` i testy GitHub Actions.
+
+## Wymagania
+
+Node.js **24.17 lub nowszy**, Discord bot token oraz możliwość uruchomienia FFmpeg. Darmowy hosting 24/7 musi naprawdę działać ciągle i utrzymywać trwałe pliki data/; limity hostingu mogą ograniczyć funkcje.
+
+## Uruchomienie
+
+1. Wejdź na https://discord.com/developers/applications → **New Application** → **NeonBeats Bot**.
+2. Otwórz **Bot**, utwórz token nowej aplikacji i zachowaj go prywatnie.
+3. Skopiuj plik `.env.example` jako `.env` (tylko na hostingu / komputerze).
+4. Wypełnij `DISCORD_TOKEN`, `CLIENT_ID` (Application ID nowej aplikacji) i `GUILD_ID` (ID Twojego serwera Discord).
+5. Zaproś nowego bota na serwer z zakresami **bot** i **applications.commands** oraz uprawnieniami Connect, Speak, Send Messages i View Channels.
+6. W panelu hostingu ustaw Node.js 24+, plik startowy `index.js` lub polecenie `npm start`.
+7. Uruchom `npm install --no-audit --no-fund`, następnie `npm start`.
+8. Na Discordzie wykonaj `/status`, `/testaudio`, `/panel`, `/neonhelp`.
+
+### Testy
+
+```bash
+npm install --no-audit --no-fund
+npm run check
+```
+
+GitHub Actions uruchamia testy przy push i pull request.
+
+### Najważniejsze komendy
+
+| Obszar | Komendy |
+| --- | --- |
+| Muzyka | `/play source:demo.wav`, `/queue`, `/skip`, `/stop`, `/pause`, `/resume` |
+| Diagnostyka | `/status`, `/testaudio`, `/files` |
+| Panel | `/panel`, `/nowplaying`, `/volume` |
+| Radio | `/radio add`, `/radio list`, `/radio play`, `/radio stop` |
+| 24/7 | `/247 on`, `/247 off`, `/247 status` |
+| AutoDJ | `/autodj on`, `/autodj off` |
+| Efekty | `/dj preset`, `/dj off`, `/dj status` |
+| Playlisty | `/playlist save`, `/playlist load`, `/playlist list`, `/playlist delete` |
+
+**Uwaga o YouTube i Spotify:** NeonBeats rozpoznaje adresy obu usług, ale ich API nie dostarczają audio do nadawania na kanale Discorda. Komenda `/play` nie obchodzi blokady sesji ani zabezpieczeń YouTube/Spotify. Korzystaj z muzyki i strumieni, do których odtwarzania i retransmisji masz prawo.
+
+**Bezpieczeństwo:** nigdy nie dodawaj prywatnego `.env`, tokenów Discord ani plików z folderu `data/` do GitHuba. Nie używaj tokena BOBER MUSIC BOT — NeonBeats wymaga osobnej aplikacji Discord.

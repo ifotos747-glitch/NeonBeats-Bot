@@ -1,0 +1,12 @@
+'use strict';
+const PRESETS={
+ off:[],
+ bass:['bass=g=8:f=90:w=0.5'],
+ nightcore:['asetrate=48000*1.25','aresample=48000'],
+ slowed:['asetrate=48000*0.85','aresample=48000'],
+ '8d':['apulsator=hz=0.09'],
+ echo:['aecho=0.8:0.7:65:0.3'],
+ club:['bass=g=6:f=90','acompressor=threshold=-18dB:ratio=3:attack=15:release=100']
+};
+function filterFor(preset){if(!Object.hasOwn(PRESETS,preset))throw Error('Nieznany preset DJ');return PRESETS[preset].join(',');}
+module.exports={PRESETS,filterFor};

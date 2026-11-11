@@ -1,0 +1,14 @@
+.env
+.env.*
+!.env.example
+node_modules/
+data/*
+!data/.gitkeep
+music/*
+!music/demo.wav
+*.log
+*.key
+*.pem
+*.jks
+client_secret*.json
+.DS_Store
