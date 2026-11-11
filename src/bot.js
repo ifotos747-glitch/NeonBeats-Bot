@@ -6,6 +6,7 @@ const {musicFiles,localFile,classifyInput}=require('./media');
 const store=require('./store'),{sessions,ensureSession}=require('./player');
 const {diagnoseStream,diagnoseLocalFFmpeg,diagnoseHttp,formatDiagnostic}=require('./diagnostics');
 const {normalizeYouTubeUrl,ytDlpPath,installYtDlp,ytDlpVersion,diagnoseYouTube}=require('./youtube');
+const {MAX_PLAYLIST_ITEMS,isYouTubePlaylistUrl,loadYoutubePlaylist}=require('./youtube-playlist');
 const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildVoiceStates]});
 const hidden={flags:MessageFlags.Ephemeral};
 function clean(x){return String(x||'').replace(/[\r\n*@<>]/g,' ').slice(0,140);}
@@ -31,6 +32,22 @@ function voice(i){const m=i.guild?.members.cache.get(i.user.id)||i.member,v=m?.v
 function getSession(i){const s=sessions.get(i.guildId);if(!s)throw Error('Bot nie jest połączony.');
  if(voice(i).id!==s.channelId)throw Error('Dołącz do kanału, na którym jest bot.');return s;}
 function join(i){return ensureSession(i.guild,voice(i),i.channel);}
+async function enqueueYoutubePlaylist(i,source){
+ // Validate channel before contacting YouTube; no voice connection created yet.
+ voice(i);
+ if(!ytDlpPath())throw Error('Brak yt-dlp. Administrator: /youtube install.');
+ const url=String(source||'');
+ const result=await loadYoutubePlaylist(url);
+ const s=join(i);
+ const available=100-s.queue.length;
+ if(available<1)throw Error('Kolejka jest pełna (100 utworów).');
+ const tracks=result.tracks.slice(0,available);
+ s.enqueueMany(tracks);
+ return '✅ Playlista YouTube: dodano '+tracks.length+' utworów do kolejki (maks. '+MAX_PLAYLIST_ITEMS+' na import).'+
+   (result.skipped?' Pominięto niedostępnych lub błędnych: '+result.skipped+'.':'')+
+   (result.partial?' Niektóre pozycje mogły być niedostępne.':'')+
+   (tracks.length<result.tracks.length?' Kolejka osiągnęła limit 100.':'');
+}
 function queueMessage(s){if(!s)return 'Kolejka jest pusta.';
  return [s.current?'Teraz gra: '+clean(s.current.title):'Nic nie gra',
   ...s.queue.slice(0,18).map((t,n)=>String(n+1)+'. '+clean(t.title)),
@@ -56,7 +73,7 @@ async function slash(i){
  const sub=['radio','autodj','247','dj','playlist','youtube'].includes(n)?i.options.getSubcommand():'';
  if(n==='neonhelp')return i.reply({embeds:[embed('🎧 NEONBEATS 1.0 — KOMENDY',
   '/play /queue /nowplaying /pause /resume /skip /stop /leave /volume /panel\n'+
-  '/radio add|remove|list|play|stop|diagnoza\n/autodj on|off\n/247 on|off|status\n'+
+  '/radio add|remove|list|play|stop|diagnoza\n/youtube install|status|diagnoza|playlista\n/autodj on|off\n/247 on|off|status\n'+
   '/dj preset|off|status\n/playlist save|load|list|delete\n/status /files /testaudio')],...hidden});
  if(n==='panel')return i.reply(panel());
  if(n==='status'){
@@ -73,6 +90,13 @@ async function slash(i){
   if(sub==='status'){
    const status=await ytDlpVersion();
    return i.reply({content:status.ok?'✅ yt-dlp: '+status.description+' | Node: '+process.version:'⚠️ '+status.description,...hidden});
+  }
+  if(sub==='playlista'){
+   await i.deferReply(hidden);
+   try{
+    const message=await enqueueYoutubePlaylist(i,i.options.getString('url',true));
+    return i.editReply({content:message,allowedMentions:{parse:[]}});
+   }catch(err){return i.editReply({content:'⚠️ '+clean(err.message)});}
   }
   requireAdmin(i);
   await i.deferReply(hidden);
@@ -92,6 +116,13 @@ async function slash(i){
  if(n==='play'||n==='testaudio'){
   const x=n==='testaudio'?localFile('demo.wav'):classifyInput(i.options.getString('source',true),store.read(i.guildId).radios);
   if(x.kind==='spotify-link')return i.reply({content:'Spotify nie udostępnia bezpośredniego audio dla tego bota. Wybierz plik lub uprawniony strumień.',...hidden});
+  if(x.kind==='youtube-link'&&isYouTubePlaylistUrl(x.source)){
+   await i.deferReply(hidden);
+   try{
+    const message=await enqueueYoutubePlaylist(i,x.source);
+    return i.editReply({content:message,allowedMentions:{parse:[]}});
+   }catch(err){return i.editReply({content:'⚠️ '+clean(err.message)});}
+  }
   if(x.kind==='youtube-link'){
    const url=normalizeYouTubeUrl(x.source);
    if(!ytDlpPath())return i.reply({content:'⚠️ YouTube wymaga konfiguracji. Administrator: /youtube install.',...hidden});

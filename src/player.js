@@ -48,6 +48,17 @@ class MusicSession{
   }
   return null;
  }
+ enqueueMany(tracks){
+  if(this.closed)throw Error('Bot nie jest połączony.');
+  if(!Array.isArray(tracks)||tracks.length<1)throw Error('Playlista jest pusta.');
+  if(this.queue.length+tracks.length>MAX_QUEUE)throw Error('Limit kolejki 100 utworów.');
+  this.queue.push(...tracks);
+  this.clearTimer();
+  if(!this.current&&!this.starting){
+   clearTimeout(this.retry);this.retry=null;void this.startNext();
+  }else if(this.current?.continuous)this.skip();
+  return tracks.length;
+ }
  enqueue(track){
   if(this.closed)throw Error('Bot nie jest połączony.');
   if(this.queue.length>=MAX_QUEUE)throw Error('Kolejka osiągnęła limit 100.');
