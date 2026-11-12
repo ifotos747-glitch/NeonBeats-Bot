@@ -1,6 +1,5 @@
 'use strict';
 const {monitorEventLoopDelay,performance}=require('node:perf_hooks');
-const {cpus}=require('node:os');
 
 // Lightweight sampling: the 10s / 60s worst event-loop delays reveal freezes
 // invisible in ALTARE's averaged CPU gauge. Values are sampled, not guessed.
