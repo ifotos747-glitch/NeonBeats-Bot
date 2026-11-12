@@ -3,7 +3,7 @@ const fs=require('node:fs'),path=require('node:path');
 const {spawn}=require('node:child_process');
 const {randomInt}=require('node:crypto');
 const {pipeHttpAudio}=require('./network');
-const {bufferPcm}=require('./audio-buffer');
+const {bufferPcm,bufferLivePcm}=require('./audio-buffer');
 const {spawnYouTube,cleanYtdlpError,selectAudioProfile,isPyInstallerError}=require('./youtube');
 const {joinVoiceChannel,createAudioPlayer,createAudioResource,AudioPlayerStatus,VoiceConnectionStatus,NoSubscriberBehavior,StreamType,entersState}=require('@discordjs/voice');
 const {MUSIC,ffmpegPath,IDLE_MINUTES}=require('./config');
@@ -40,7 +40,7 @@ class MusicSession{
   this.guildId=guild.id;this.channelId=voiceChannel.id;this.textChannel=textChannel;
   this.queue=[];this.current=null;this.volume=85;this.autodj=false;this.autodjIndex=0;
   this.alwaysOn=null;this.dj=store.read(guild.id).dj;
-  this.process=null;this.ytProcess=null;this.netAbort=null;this.timer=null;this.retry=null;this.startupTimer=null;this.watchdog=null;this.blockUntil=0;
+  this.process=null;this.ytProcess=null;this.netAbort=null;this.radioBuffer=null;this.radioStats=null;this.timer=null;this.retry=null;this.startupTimer=null;this.watchdog=null;this.blockUntil=0;
   this.lastError='';this.closed=false;this.starting=false;this.retryCount=0;
   this.panelFactory=null;this.panelMessage=null;this.panelChannelId=null;this.panelUpdate=null;this.panelDirty=false;this.panelLastEdit=0;
   this.repeatMode='off';this.skipRequested=false;this.playedCount=0;this.playingSince=0;
@@ -91,6 +91,7 @@ class MusicSession{
  clearTimer(){clearTimeout(this.timer);this.timer=null;}
  setRetry(ms){clearTimeout(this.retry);this.retry=setTimeout(()=>{this.retry=null;void this.startNext();},ms);this.retry.unref?.();}
  cleanProcess(){clearTimeout(this.startupTimer);this.startupTimer=null;
+   if(this.radioBuffer){this.radioBuffer.stop();this.radioBuffer=null;}
    clearInterval(this.watchdog);this.watchdog=null;
    if(this.netAbort){this.netAbort.abort();this.netAbort=null;}
    if(this.ytProcess){const yt=this.ytProcess;this.ytProcess=null;try{yt.kill('SIGKILL');}catch{}}
@@ -284,13 +285,28 @@ class MusicSession{
   // Radio gets a larger initial cushion than YouTube, because a live stream
   // cannot request missing packets again. Both values remain configurable.
   const prebufferMs=audioBufferMs(track);
+  const liveRadio=track.kind==='radio'||track.kind==='stream';
   const buffered=track.kind!=='file'&&prebufferMs>0;
-  const inputPcm=buffered?bufferPcm(child.stdout,()=>{
+  const startVoice=()=>{
    if(!this.closed&&this.current===track&&this.process===child)this.player.play(this.resource);
-  },{milliseconds:prebufferMs}):child.stdout;
+  };
+  let inputPcm=child.stdout;
+  this.radioStats=null;
+  if(liveRadio){
+   // Real-time jitter buffer: keep a small amount of decoded audio throughout
+   // playback and inject short silence on underruns instead of dropping voice.
+   this.radioBuffer=bufferLivePcm(child.stdout,startVoice,{
+    milliseconds:prebufferMs,
+    recoveryMs:Math.min(700,Math.max(250,Math.round(prebufferMs/2)))
+   });
+   this.radioStats=this.radioBuffer.stats;
+   inputPcm=this.radioBuffer.stream;
+  }else if(buffered){
+   inputPcm=bufferPcm(child.stdout,startVoice,{milliseconds:prebufferMs});
+  }
   this.resource=createAudioResource(inputPcm,{inputType:StreamType.Raw,inlineVolume:true,metadata:track});
   this.resource.volume.setVolume(this.volume/100);
-  if(!buffered)this.player.play(this.resource);
+  if(!liveRadio&&!buffered)this.player.play(this.resource);
   // Recover from a stuck network/YouTube stream, not from ordinary pauses.
   if(track.kind!=='file'){
    this.watchdog=setInterval(()=>{
