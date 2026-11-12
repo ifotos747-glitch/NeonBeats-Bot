@@ -36,6 +36,7 @@ ul{padding-left:21px;margin-bottom:0}li{margin:8px 0;color:#c1c5e0;font-size:14p
 footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
 @media(max-width:750px){.grid{grid-template-columns:1fr}.panel{padding:19px}.row{flex-wrap:wrap}.row .input{min-width:100%}.hero{align-items:flex-start}}
 .cover{width:145px;height:145px;object-fit:cover;border-radius:16px;box-shadow:0 12px 32px #0005;background:#242443;flex-shrink:0}.radio-cover{width:145px;height:145px;border-radius:16px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;background:radial-gradient(circle at 25% 20%,#a54eff,#433cbd 43%,#161333 100%);border:1px solid #ffffff30;box-shadow:0 12px 32px #0005;color:#fff;text-align:center}.radio-cover .radio-note{font-size:48px;line-height:1.1;text-shadow:0 3px 20px #fff5}.radio-cover strong{font-size:13px;letter-spacing:2px}.radio-cover span{font-size:10px;letter-spacing:1px;color:#d9cbff}.cover.hidden,.radio-cover.hidden{display:none!important}.playing{display:flex;align-items:center;gap:20px;flex-wrap:wrap}.media-list{display:grid;gap:11px}.media-row{display:flex;align-items:center;gap:12px;border:1px solid #343756;padding:9px;border-radius:11px}.media-row img{width:54px;height:54px;object-fit:cover;border-radius:8px;background:#292941}.media-row .meta{flex:1;min-width:0;overflow-wrap:anywhere;font-size:13px}.media-row button{padding:9px;font-size:12px}.mini{font-size:12px;color:#aaaed0;margin-top:4px}.page-heading{font-weight:800;color:#a986ff;letter-spacing:1px;font-size:12px;margin:0 0 16px}
+.qrow{display:flex;align-items:center;gap:8px;border:1px solid #353958;border-radius:10px;padding:10px;margin:7px 0;background:#171b37}.qrow[draggable=true]{cursor:grab}.qrow.dragging{opacity:.55}.qrow .qtitle{flex:1;min-width:0;font-size:13px;overflow-wrap:anywhere}.qrow button{padding:7px 10px;font-size:12px}.statgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stat{border:1px solid #343958;background:#10142e;padding:14px;border-radius:12px}.stat b{display:block;font-size:23px;margin:4px 0}.stat span{color:#bec2dc;font-size:12px}
 </style>
 </head>
 <body>
@@ -51,7 +52,7 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
 <section class="panel"><div class="label">MUSIC CONTROL</div><h2>🎶 Teraz gra</h2><div class="playing"><img class="cover hidden" id="cover" alt="Okładka aktualnego utworu YouTube"><div class="radio-cover" id="radioCover" aria-label="Grafika zastępcza radia NeonBeats"><span class="radio-note">♫</span><strong>NEONBEATS</strong><span>RADIO LIVE</span></div><div><p class="now" id="song">Nie odtwarza</p><p class="next" id="next">Następny: brak</p></div></div>
 <div class="ctrl"><button data-act="pause">⏸️ Pauza</button><button data-act="resume">▶️ Wznów</button><button data-act="skip">⏭️ Pomiń</button><button data-act="stop" class="danger">⏹️ Stop</button></div>
 <div class="ctrl"><button data-act="shuffle">🔀 Losuj</button><button data-act="repeat">🔁 Powtarzanie</button><button data-act="clear" class="danger">🗑️ Wyczyść kolejkę</button></div></section>
-<section class="panel"><h2>📋 Kolejka</h2><ol id="queue"><li>Brak pozycji</li></ol></section>
+<section class="panel"><h2>📋 Kolejka — menedżer 3.3</h2><p class="muted">Przeciągnij utwór lub użyj strzałek, aby zmienić kolejność. Usuwanie pozycji nie przerywa aktualnego utworu.</p><div id="queue" aria-label="Kolejka utworów">Brak utworów</div><p class="muted" id="queueCount">0 oczekujących</p></section>
 </div>
 <div class="stack">
 <section class="panel"><h2>🎚️ Ustawienia</h2>
@@ -69,14 +70,14 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
 <section class="panel"><h2>📻 Globalne radio</h2><label class="label" for="radioName">Dokładna nazwa stacji z katalogu NeonBeats</label><div class="row"><input class="input" id="radioName" maxlength="100" placeholder="Nazwa stacji"><button id="playRadio">Włącz</button></div></section>
 </div>
 </div>
-<div class="grid" style="margin-top:18px"><section class="panel"><h2>🕘 Historia odtwarzania</h2><p class="muted">Ostatnie utwory odtwarzane na wybranym serwerze.</p><div class="media-list" id="historyList"><p class="muted">Brak historii.</p></div></section><section class="panel"><h2>✨ NeonBeats 3.2</h2><p class="muted">Okładki aktualnego utworu YouTube, wyszukiwarka muzyki, trwała historia oraz zapisane playlisty. Wszystko dostępne po zalogowaniu przez Discord.</p><p class="muted">Do odtwarzania nadal wymagany jest aktywny bot na kanale głosowym.</p></section></div><p id="message" role="status" aria-live="polite"></p>
+<div class="grid" style="margin-top:18px"><section class="panel"><h2>⭐ Ulubione utwory</h2><p class="muted">Zachowaj maksymalnie 100 filmów YouTube na wybranym serwerze.</p><button id="favoriteCurrent">⭐ Dodaj aktualny utwór</button><div class="media-list spaced" id="favoriteList">Brak ulubionych utworów.</div></section><section class="panel"><h2>📊 Statystyki odtwarzania</h2><p class="muted">Liczby liczone od wdrożenia NeonBeats 3.3 (jedno zdarzenie na rozpoczęcie utworu).</p><div class="statgrid"><div class="stat"><span>Łącznie</span><b id="statTotal">0</b></div><div class="stat"><span>YouTube</span><b id="statYoutube">0</b></div><div class="stat"><span>Radio</span><b id="statRadio">0</b></div><div class="stat"><span>Inne</span><b id="statOther">0</b></div></div></section></div><section class="panel" style="margin-top:18px"><h2>🛡️ Centrum administratora — wszystkie Twoje serwery</h2><p class="muted">Pokazuje tylko serwery, na których masz uprawnienia Zarządzanie serwerem lub Administrator. Wybierz serwer na górze, aby nim sterować.</p><div id="adminGuilds" class="media-list">Ładowanie serwerów…</div></section><div class="grid" style="margin-top:18px"><section class="panel"><h2>🕘 Historia odtwarzania</h2><p class="muted">Ostatnie utwory odtwarzane na wybranym serwerze.</p><div class="media-list" id="historyList"><p class="muted">Brak historii.</p></div></section><section class="panel"><h2>✨ NeonBeats 3.2</h2><p class="muted">Okładki aktualnego utworu YouTube, wyszukiwarka muzyki, trwała historia oraz zapisane playlisty. Wszystko dostępne po zalogowaniu przez Discord.</p><p class="muted">Do odtwarzania nadal wymagany jest aktywny bot na kanale głosowym.</p></section></div><p id="message" role="status" aria-live="polite"></p>
 </section>
 </main>
 <footer>NeonBeats Web Control • Wymaga połączenia z Cloudflare i ALTARE • Panel tylko dla uprawnionych administratorów serwera</footer>
 <script>
 (function(){
  const $=id=>document.getElementById(id);
- let selected='',signedIn=false;
+ let selected='',signedIn=false,lastBot=null,managedGuilds=[];
  const VIDEO_ID=/^[A-Za-z0-9_-]{11}$/;
  function youtubeId(raw){try{const u=new URL(raw);return u.hostname==='www.youtube.com'&&u.pathname==='/watch'&&VIDEO_ID.test(u.searchParams.get('v')||'')?u.searchParams.get('v'):null;}catch{return null;}}
  function thumb(url){const id=youtubeId(url);return id?'https://i.ytimg.com/vi/'+id+'/mqdefault.jpg':null;}
@@ -92,12 +93,46 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
   items.forEach(item=>{if(youtubeId(item.url))holder.append(makeRow({title:String(item.title||'Utwór'),url:item.url,action:()=>void send('play',item.url)}));});
  }
  function renderHistory(items){const holder=$('historyList');holder.replaceChildren();if(!Array.isArray(items)||!items.length){holder.textContent='Brak historii.';return;}
-  items.slice(0,20).forEach(item=>{const date=new Date(item.at);holder.append(makeRow({title:item.title,url:item.source,subtitle:Number.isFinite(date.getTime())?date.toLocaleString('pl-PL'):'',action:youtubeId(item.source)?()=>void send('play',item.source):null,actionLabel:'Odtwórz'}));});
+  items.slice(0,20).forEach(item=>{const date=new Date(item.at);const row=makeRow({title:item.title,url:item.source,subtitle:Number.isFinite(date.getTime())?date.toLocaleString('pl-PL'):'',action:youtubeId(item.source)?()=>void send('favorite-add',item.source):null,actionLabel:'⭐ Zapisz'});holder.append(row);});
  }
  function renderSaved(items){const holder=$('savedLists');holder.replaceChildren();if(!Array.isArray(items)||!items.length){holder.textContent='Brak zapisanych playlist.';return;}
   items.forEach(item=>{const box=document.createElement('div');box.className='media-row';const info=document.createElement('div');info.className='meta';info.textContent=item.name+' — '+item.count+' utworów';box.append(info);
    const load=document.createElement('button');load.textContent='Wczytaj';load.addEventListener('click',()=>void send('load-list',item.name));box.append(load);
    const remove=document.createElement('button');remove.className='danger';remove.textContent='Usuń';remove.addEventListener('click',()=>{if(confirm('Usunąć playlistę '+item.name+'?'))void send('delete-list',item.name);});box.append(remove);holder.append(box);
+  });
+ }
+ function renderFavorites(items){
+  const box=$('favoriteList');box.replaceChildren();
+  if(!Array.isArray(items)||!items.length){box.textContent='Brak ulubionych utworów.';return;}
+  items.forEach(item=>{const row=makeRow({title:item.title,url:item.source,action:()=>void send('play',item.source),actionLabel:'▶ Dodaj'});
+   const remove=document.createElement('button');remove.textContent='Usuń';remove.className='danger';remove.addEventListener('click',()=>void send('favorite-remove',item.source));row.append(remove);box.append(row);});
+ }
+ function renderQueue(bot){
+  const box=$('queue');box.replaceChildren();const tracks=Array.isArray(bot.queueTracks)?bot.queueTracks:[];
+  $('queueCount').textContent=(bot.queueTotal||tracks.length)+' utworów oczekujących';
+  if(!tracks.length){box.textContent='Kolejka jest pusta.';return;}
+  tracks.forEach((track,i)=>{
+   const row=document.createElement('div');row.className='qrow';row.draggable=true;
+   const title=document.createElement('span');title.className='qtitle';title.textContent=(i+1)+'. '+track.title;row.append(title);
+   const button=(text,callback,disabled=false)=>{const b=document.createElement('button');b.textContent=text;b.disabled=disabled;b.addEventListener('click',callback);row.append(b);};
+   button('↑',()=>void send('queue-move',{from:i,to:i-1}),i===0);
+   button('↓',()=>void send('queue-move',{from:i,to:i+1}),i===tracks.length-1);
+   if(youtubeId(track.source))button('⭐',()=>void send('favorite-add',track.source));
+   button('✕',()=>void send('queue-remove',i));
+   row.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',String(i));e.dataTransfer.effectAllowed='move';row.classList.add('dragging');});
+   row.addEventListener('dragend',()=>row.classList.remove('dragging'));
+   row.addEventListener('dragover',e=>{e.preventDefault();e.dataTransfer.dropEffect='move';});
+   row.addEventListener('drop',e=>{e.preventDefault();const from=Number(e.dataTransfer.getData('text/plain'));if(Number.isInteger(from)&&from!==i)void send('queue-move',{from,to:i});});
+   box.append(row);
+  });
+ }
+ function renderAdmin(guilds){
+  const box=$('adminGuilds');box.replaceChildren();
+  if(!guilds.length){box.textContent='Brak serwerów z uprawnieniami administratora.';return;}
+  guilds.forEach(g=>{const row=document.createElement('div');row.className='qrow';
+   const t=document.createElement('div');t.className='qtitle';t.textContent=g.name+' — '+(g.botOnline?'Web Control połączony':'Brak aktywnego połączenia bota');row.append(t);
+   const b=document.createElement('button');b.textContent='Zarządzaj';b.disabled=!g.botOnline;
+   b.addEventListener('click',()=>{selected=g.id;$('guild').value=g.id;void refresh();window.scrollTo({top:0,behavior:'smooth'});});row.append(b);box.append(row);
   });
  }
  function message(value,error=false){$('message').textContent=value;$('message').classList.toggle('error',error);}
@@ -135,9 +170,9 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
   $('volume').value=String(bot.volume);$('volumeLabel').textContent=bot.volume+'%';
   $('repeat').textContent=bot.repeat==='one'?'Jeden utwór':'Wyłączone';
   $('djLabel').textContent=bot.dj;$('dj').value=bot.dj;
-  $('queue').replaceChildren();
-  if(!bot.queue.length){const li=document.createElement('li');li.textContent='Brak kolejnych utworów';$('queue').append(li);}
-  else bot.queue.forEach(title=>{const li=document.createElement('li');li.textContent=title;$('queue').append(li);});
+  lastBot=bot;renderQueue(bot);renderFavorites(bot.favorites);
+  for(const key of ['total','youtube','radio','other'])$('stat'+key[0].toUpperCase()+key.slice(1)).textContent=Number(bot.stats?.[key]||0).toLocaleString('pl-PL');
+  $('favoriteCurrent').disabled=!youtubeId(bot.nowSource);
   document.querySelectorAll('[data-act],#saveVolume,#saveDJ,#addVideo,#addPlaylist,#playRadio,#searchButton,#saveListButton').forEach(button=>{button.disabled=!bot.connected;});
   $('connection').textContent=bot.connected?'● Bot połączony':'● Czeka na kanał głosowy';
  }
@@ -151,6 +186,7 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
    const data=await api('/api/me');
    signedIn=true;
    $('loginPanel').classList.add('hidden');$('controlPanel').classList.remove('hidden');$('logout').classList.remove('hidden');
+   managedGuilds=data.guilds;renderAdmin(managedGuilds);
    const guilds=data.guilds.filter(g=>g.botOnline);
    if(!guilds.length){$('connection').textContent='● Brak połączonych serwerów';$('guild').innerHTML='<option>Brak serwerów</option>';$('hint').textContent='Brak serwerów z aktywnym mostem NeonBeats. Upewnij się, że bot jest na Twoim serwerze i skonfiguruj połączenie Cloudflare ↔ ALTARE.';return;}
    $('guild').replaceChildren();
@@ -172,6 +208,7 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
  $('guild').addEventListener('change',event=>{selected=event.target.value;void refresh();});
  $('volume').addEventListener('input',event=>$('volumeLabel').textContent=event.target.value+'%');
  document.querySelectorAll('[data-act]').forEach(b=>b.addEventListener('click',()=>void send(b.dataset.act)));
+ $('favoriteCurrent').addEventListener('click',()=>{if(youtubeId(lastBot?.nowSource))void send('favorite-add',lastBot.nowSource);});
  $('saveVolume').addEventListener('click',()=>void send('volume',Number($('volume').value)));
  $('saveDJ').addEventListener('click',()=>void send('dj',$('dj').value));
  $('addVideo').addEventListener('click',()=>{const url=$('youtubeUrl').value.trim();if(!url)return message('Wpisz link YouTube.',true);void send('play',url);});
