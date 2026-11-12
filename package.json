@@ -1,8 +1,8 @@
 {
   "name": "neonbeats-bot",
-  "version": "2.3.2",
+  "version": "2.4.0",
   "private": true,
-  "description": "NeonBeats Bot 2.3.1 — PYINSTALLER TEMP REPAIR | Discord music, radio 24/7, AutoDJ, DJ effects and playlists",
+  "description": "NeonBeats Bot 2.4 — YOUTUBE TITLES | Discord music, radio 24/7, AutoDJ, DJ effects and playlists",
   "main": "index.js",
   "engines": {
     "node": ">=24.17.0"
