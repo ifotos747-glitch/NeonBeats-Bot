@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {normalizeYouTubeUrl,youtubeArgs,selectAudioProfile,cleanYtdlpError,isPyInstallerError,ytDlpEnvironment}=require('../src/youtube');
+const {normalizeYouTubeUrl,youtubeArgs,selectAudioProfile,cleanYtdlpError,isPyInstallerError,ytDlpEnvironment,ytDlpTempStatus}=require('../src/youtube');
 test('accepts video, shorts and music links',()=>{
  const id='dQw4w9WgXcQ',expected='https://www.youtube.com/watch?v='+id;
  for(const url of [
@@ -67,5 +67,24 @@ test('custom temporary directory must be absolute',()=>{
  }finally{
   if(before===undefined)delete process.env.YTDLP_TMPDIR;
   else process.env.YTDLP_TMPDIR=before;
+ }
+});
+
+test('yt-dlp exposes a writable temporary directory and its free space',()=>{
+ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+ const original=process.env.YTDLP_TMPDIR;
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'neon-yt-tmp-'));
+ try{
+  process.env.YTDLP_TMPDIR=dir;
+  const env=ytDlpEnvironment();
+  assert.equal(env.TMPDIR,dir);
+  assert.equal(env.TEMP,dir);
+  const status=ytDlpTempStatus();
+  assert.equal(status.path,dir);
+  assert.equal(typeof status.availableMB,'number');
+ }finally{
+  if(original===undefined)delete process.env.YTDLP_TMPDIR;
+  else process.env.YTDLP_TMPDIR=original;
+  fs.rmSync(dir,{recursive:true,force:true});
  }
 });

@@ -2,13 +2,14 @@
 const fs=require('node:fs'),path=require('node:path');
 const {spawn}=require('node:child_process');
 const {pipeHttpAudio}=require('./network');
-const {spawnYouTube,cleanYtdlpError,selectAudioProfile}=require('./youtube');
+const {spawnYouTube,cleanYtdlpError,selectAudioProfile,isPyInstallerError}=require('./youtube');
 const {joinVoiceChannel,createAudioPlayer,createAudioResource,AudioPlayerStatus,VoiceConnectionStatus,NoSubscriberBehavior,StreamType,entersState}=require('@discordjs/voice');
 const {MUSIC,ffmpegPath,IDLE_MINUTES}=require('./config');
 const {musicFiles}=require('./media'),{filterFor}=require('./effects'),store=require('./store'),radio=require('./global-radio');
 const sessions=new Map(),MAX_QUEUE=100;
 function shouldRetryYouTube(track,message){
  if(track?.kind!=='youtube-link'||(track.compatRetries||0)>=2)return false;
+ if(isPyInstallerError(message)||/rozpakować bibliotek|\bPYI\b|\bkod:\s*255\b/i.test(String(message||'')))return false;
  return !/(?:sign in|log ?in|not a bot|cookie|private|deleted|copyright|drm|not available|unavailable|403|404|members.only|age.restricted|unsupported url)/i.test(String(message||''));
 }
 function clean(s){return String(s||'Utwór').replace(/[\r\n\t*_<>@]/g,' ').slice(0,100);}

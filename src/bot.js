@@ -5,7 +5,7 @@ const {ffmpegPath,BOT_NAME,VERSION}=require('./config');
 const {musicFiles,localFile,classifyInput}=require('./media');
 const store=require('./store'),radio=require('./global-radio'),{sessions,ensureSession}=require('./player');
 const {diagnoseStream,diagnoseLocalFFmpeg,diagnoseHttp,formatDiagnostic}=require('./diagnostics');
-const {normalizeYouTubeUrl,ytDlpPath,installYtDlp,updateYtDlp,ytDlpVersion,diagnoseYouTube}=require('./youtube');
+const {normalizeYouTubeUrl,ytDlpPath,ytDlpTempStatus,installYtDlp,updateYtDlp,ytDlpVersion,diagnoseYouTube}=require('./youtube');
 const {MAX_PLAYLIST_ITEMS,isYouTubePlaylistUrl,loadYoutubePlaylist}=require('./youtube-playlist');
 const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildVoiceStates]});
 const hidden={flags:MessageFlags.Ephemeral};
@@ -103,14 +103,24 @@ async function slash(i){
  if(n==='youtube'){
   if(sub==='status'){
    const status=await ytDlpVersion();
-   return i.reply({content:status.ok?'✅ yt-dlp: '+status.description+' | Node: '+process.version:'⚠️ '+status.description,...hidden});
+   const temp=ytDlpTempStatus();
+   const tempInfo='\n📁 Katalog tymczasowy: '+clean(temp.path)+
+     (temp.availableMB===null?' | brak danych o wolnym miejscu':' | dostępne: '+temp.availableMB+' MB')+
+     (temp.lowSpace?' ⚠️ Mało miejsca':'')+
+     (temp.error?' | '+clean(temp.error):'');
+   return i.reply({content:(status.ok?'✅ yt-dlp: '+status.description+' | Node: '+process.version:'⚠️ '+status.description)+tempInfo,...hidden});
   }
   if(sub==='napraw'){
    await i.deferReply(hidden);
    const info=await ytDlpVersion();
-   return i.editReply({content:info.ok?
-     '✅ Silnik yt-dlp: '+clean(info.description)+'\nW razie odrzuceń spróbuj /youtube aktualizuj, potem /youtube diagnoza z linkiem. Niektóre filmy nie udostępniają audio na hostingu.':
-     '⚠️ '+clean(info.description)+'\nSpróbuj /youtube install, a następnie /youtube aktualizuj.'});
+   const temp=ytDlpTempStatus();
+   const details='\n📁 TMP: '+clean(temp.path)+
+     (temp.availableMB===null?' | wolne miejsce nieznane':' | wolne: '+temp.availableMB+' MB')+
+     (temp.lowSpace?' ⚠️ Mało miejsca':'')+
+     (temp.error?' | '+clean(temp.error):'');
+   return i.editReply({content:(info.ok?
+     '✅ Silnik yt-dlp: '+clean(info.description)+'\nSprawdź /youtube diagnoza dla filmu.':
+     '⚠️ '+clean(info.description)+'\nBłąd PYI oznacza problem rozpakowywania silnika na hostingu, nie formatu audio. Sprawdź katalog i wolne miejsce ALTARE.')+details});
   }
   if(sub==='playlista'){
    await i.deferReply(hidden);

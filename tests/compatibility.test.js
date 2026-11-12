@@ -12,3 +12,11 @@ test('access and unavailable errors are not retried',()=>{
  for(const reason of ['Sign in to confirm you are not a bot','Video unavailable','HTTP 403','copyright','private video'])
   assert.equal(shouldRetryYouTube({kind:'youtube-link'},reason),false);
 });
+
+test('PyInstaller extraction failures are not retried with alternate audio profiles',()=>{
+ for(const reason of [
+  '[PYI-140:ERROR] Failed to extract Cryptodome/Cipher/_ARC4.abi3.so',
+  'Silnik yt-dlp nie może rozpakować bibliotek (PYI)',
+  'YouTube: błąd uruchomienia (kod: 255, sygnał: brak)'
+ ])assert.equal(shouldRetryYouTube({kind:'youtube-link'},reason),false);
+});
