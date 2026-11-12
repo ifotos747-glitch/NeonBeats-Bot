@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {normalizeYouTubeUrl,youtubeArgs,selectAudioProfile,cleanYtdlpError}=require('../src/youtube');
+const {normalizeYouTubeUrl,youtubeArgs,selectAudioProfile,cleanYtdlpError,isPyInstallerError,ytDlpEnvironment}=require('../src/youtube');
 test('accepts video, shorts and music links',()=>{
  const id='dQw4w9WgXcQ',expected='https://www.youtube.com/watch?v='+id;
  for(const url of [
@@ -51,4 +51,21 @@ test('remix retries use alternate yt-dlp audio formats',()=>{
  assert.match(formats[1],/m4a/);
  assert.match(formats[2],/webm/);
  assert.throws(()=>youtubeArgs(url,true,{profile:'unknown'}));
+});
+
+test('PyInstaller extraction failures are diagnosed as hosting issues',()=>{
+ const log='[PYI-126:ERROR] Failed to extract Cryptodome/Cipher/_ARC4.abi3.so: decompression resulted in return code -1!';
+ assert.equal(isPyInstallerError(log),true);
+ assert.match(cleanYtdlpError(log),/katalogu tymczasowym/);
+ assert.equal(isPyInstallerError('ERROR: video is unavailable'),false);
+});
+test('custom temporary directory must be absolute',()=>{
+ const before=process.env.YTDLP_TMPDIR;
+ try{
+  process.env.YTDLP_TMPDIR='relative-folder';
+  assert.throws(()=>ytDlpEnvironment(),/pełną ścieżką/);
+ }finally{
+  if(before===undefined)delete process.env.YTDLP_TMPDIR;
+  else process.env.YTDLP_TMPDIR=before;
+ }
 });
