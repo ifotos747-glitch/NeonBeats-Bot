@@ -321,7 +321,7 @@ class MusicSession{
   let inputPcm=child.stdout;
   this.radioStats=null;
   if(opusRadio){
-   // Native libopus runs inside FFmpeg, and OggDemuxer extracts Opus packets.
+   // Native libopus runs inside FFmpeg; voice demuxes Ogg/Opus without re-encoding.
    // No JS Opus encoder or PCM volume transformer in this opt-in comparison.
    this.radioBuffer=bufferOpusRadio(child.stdout,startVoice,{milliseconds:prebufferMs});
    this.radioStats=this.radioBuffer.stats;
@@ -337,7 +337,7 @@ class MusicSession{
    inputPcm=bufferPcm(child.stdout,startVoice,{milliseconds:prebufferMs});
   }
   this.resource=createAudioResource(inputPcm,{
-   inputType:opusRadio?StreamType.Opus:StreamType.Raw,
+   inputType:opusRadio?StreamType.OggOpus:StreamType.Raw,
    inlineVolume:!opusRadio,metadata:track
   });
   if(this.resource.volume)this.resource.volume.setVolume(this.volume/100);
