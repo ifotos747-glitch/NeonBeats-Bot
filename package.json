@@ -1,8 +1,8 @@
 {
   "name": "neonbeats-bot",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
-  "description": "NeonBeats Bot 1.0 — NEON GENESIS | Discord music, radio 24/7, AutoDJ, DJ effects and playlists",
+  "description": "NeonBeats Bot 2.1 — COMPATIBILITY UPDATE | Discord music, radio 24/7, AutoDJ, DJ effects and playlists",
   "main": "index.js",
   "engines": {
     "node": ">=24.17.0"

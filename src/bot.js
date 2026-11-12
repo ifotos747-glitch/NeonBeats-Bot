@@ -5,7 +5,7 @@ const {ffmpegPath,BOT_NAME,VERSION}=require('./config');
 const {musicFiles,localFile,classifyInput}=require('./media');
 const store=require('./store'),radio=require('./global-radio'),{sessions,ensureSession}=require('./player');
 const {diagnoseStream,diagnoseLocalFFmpeg,diagnoseHttp,formatDiagnostic}=require('./diagnostics');
-const {normalizeYouTubeUrl,ytDlpPath,installYtDlp,ytDlpVersion,diagnoseYouTube}=require('./youtube');
+const {normalizeYouTubeUrl,ytDlpPath,installYtDlp,updateYtDlp,ytDlpVersion,diagnoseYouTube}=require('./youtube');
 const {MAX_PLAYLIST_ITEMS,isYouTubePlaylistUrl,loadYoutubePlaylist}=require('./youtube-playlist');
 const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildVoiceStates]});
 const hidden={flags:MessageFlags.Ephemeral};
@@ -87,7 +87,7 @@ async function slash(i){
  const sub=['radio','autodj','247','dj','playlist','youtube'].includes(n)?i.options.getSubcommand():'';
  if(n==='neonhelp')return i.reply({embeds:[embed('🎧 NEONBEATS 1.0 — KOMENDY',
   '/play /queue /nowplaying /pause /resume /skip /stop /leave /volume /panel\n'+
-  '/radio szukaj|list|play|stop|ulubione|admin\n/youtube install|status|diagnoza|playlista\n/autodj on|off\n/247 on|off|status\n'+
+  '/radio szukaj|list|play|stop|ulubione|admin\n/youtube install|aktualizuj|napraw|status|diagnoza|playlista\n/autodj on|off\n/247 on|off|status\n'+
   '/dj preset|off|status\n/playlist save|load|list|delete\n/status /files /testaudio')],...hidden});
  if(n==='panel')return i.reply(panel());
  if(n==='status'){
@@ -105,6 +105,13 @@ async function slash(i){
    const status=await ytDlpVersion();
    return i.reply({content:status.ok?'✅ yt-dlp: '+status.description+' | Node: '+process.version:'⚠️ '+status.description,...hidden});
   }
+  if(sub==='napraw'){
+   await i.deferReply(hidden);
+   const info=await ytDlpVersion();
+   return i.editReply({content:info.ok?
+     '✅ Silnik yt-dlp: '+clean(info.description)+'\nW razie odrzuceń spróbuj /youtube aktualizuj, potem /youtube diagnoza z linkiem. Niektóre filmy nie udostępniają audio na hostingu.':
+     '⚠️ '+clean(info.description)+'\nSpróbuj /youtube install, a następnie /youtube aktualizuj.'});
+  }
   if(sub==='playlista'){
    await i.deferReply(hidden);
    try{
@@ -116,6 +123,13 @@ async function slash(i){
   }
   requireAdmin(i);
   await i.deferReply(hidden);
+  if(sub==='aktualizuj'){
+   try{
+    const message=await updateYtDlp();
+    const info=await ytDlpVersion();
+    return i.editReply({content:'✅ Aktualizacja YouTube: '+clean(message)+'\nSilnik: '+clean(info.description)});
+   }catch(e){return i.editReply({content:'⚠️ '+clean(e.message)});}
+  }
   if(sub==='install'){
    try{
     await installYtDlp();

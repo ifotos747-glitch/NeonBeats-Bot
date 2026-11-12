@@ -6,11 +6,11 @@ const {pipeline}=require('node:stream/promises');
 const {ROOT}=require('./config');
 const {validatePublicUrl}=require('./media');
 
-const RELEASE='2026.10.26';
+const RELEASE='2026.10.26'; // Pinned verified first install; /youtube aktualizuj upgrades installed binary.
 const DOWNLOAD='https://github.com/yt-dlp/yt-dlp/releases/download/'+RELEASE+'/yt-dlp_linux';
 const EXPECTED_SHA256='767ba9dce7052aa196f8b12652f433d76de128ba168966fa84b6394d5e6c6795';
 const LOCAL=path.join(ROOT,'bin','yt-dlp_linux');
-const YT_HOSTS=new Set(['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtu.be','www.youtu.be']);
+const YT_HOSTS=new Set(['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtu.be','www.youtu.be','youtube-nocookie.com','www.youtube-nocookie.com']);
 const VIDEO_ID=/^[A-Za-z0-9_-]{11}$/;
 let installPromise=null;
 
@@ -20,7 +20,7 @@ function normalizeYouTubeUrl(raw){
  let id;
  if(['youtu.be','www.youtu.be'].includes(u.hostname.toLowerCase()))id=u.pathname.slice(1);
  else if(u.pathname==='/watch')id=u.searchParams.get('v');
- else if(/^\/(?:shorts|live)\/[^/]+\/?$/.test(u.pathname))id=u.pathname.split('/')[2];
+ else if(/^\/(?:shorts|live|embed)\/[^/]+\/?$/.test(u.pathname))id=u.pathname.split('/')[2];
  if(!VIDEO_ID.test(id||''))throw Error('Podaj link pojedynczego filmu YouTube, nie playlistę lub kanał.');
  return 'https://www.youtube.com/watch?v='+id;
 }
@@ -32,7 +32,8 @@ function youtubeArgs(url,download){
  return [
   '--ignore-config','--no-playlist','--no-progress','--no-color',
   '--js-runtimes','node:'+process.execPath,
-  '--socket-timeout','25','--retries','3','--fragment-retries','3','--extractor-retries','3',
+  '--socket-timeout','35','--retries','5','--fragment-retries','5','--extractor-retries','5',
+  ...(process.env.YTDLP_FORCE_IPV4==='1'?['--force-ipv4']:[]),
   '-f','bestaudio/best',
   ...(download?['-o','-']:['--skip-download','--print','%(title)s']),
   '--',normalizeYouTubeUrl(url)
@@ -85,6 +86,17 @@ function ytDlpVersion(){
   });
  });
 }
+function updateYtDlp(){
+ return new Promise((resolve,reject)=>{
+  if(process.env.YTDLP_PATH)return reject(Error('YTDLP_PATH jest zarządzany ręcznie. Zaktualizuj wskazany plik na hostingu.'));
+  if(!fs.existsSync(LOCAL))return reject(Error('Nie zainstalowano yt-dlp. Najpierw /youtube install.'));
+  execFile(LOCAL,['--update-to','stable'],{timeout:180000,encoding:'utf8',maxBuffer:200000,windowsHide:true},
+   (err,stdout,stderr)=>{
+    if(err)return reject(Error('Nie udało się zaktualizować yt-dlp: '+cleanYtdlpError(stderr||err.message)));
+    resolve(String(stdout||stderr||'Silnik jest aktualny.').replace(/https?:\/\/\S+/gi,'[URL]').slice(-700));
+   });
+ });
+}
 function spawnYouTube(url){
  const bin=ytDlpPath();
  if(!bin)throw Error('Brak yt-dlp na ALTARE. Administrator: /youtube install.');
@@ -115,4 +127,4 @@ function diagnoseYouTube(url,{timeoutMs=45000}={}){
   timer.unref?.();
  });
 }
-module.exports={RELEASE,LOCAL,normalizeYouTubeUrl,ytDlpPath,youtubeArgs,cleanYtdlpError,installYtDlp,ytDlpVersion,spawnYouTube,diagnoseYouTube};
+module.exports={RELEASE,LOCAL,normalizeYouTubeUrl,ytDlpPath,youtubeArgs,cleanYtdlpError,installYtDlp,updateYtDlp,ytDlpVersion,spawnYouTube,diagnoseYouTube};
