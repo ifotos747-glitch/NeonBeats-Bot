@@ -103,3 +103,15 @@ Dla filmów YouTube odtwarzacz czeka teraz maksymalnie 90 sekund na pierwsze aud
 - YouTube nadal zależy od możliwości `yt-dlp`, zasobów ALTARE i ograniczeń samego YouTube. Nie wszystkie filmy mogą być odtwarzane; nie używaj cudzych cookies. Po instalacji sprawdź `/youtube status` i w razie potrzeby `/youtube aktualizuj`.
 
 Zaktualizuj na ALTARE: `src/bot.js`, `src/player.js`, `src/web-control.js`, `src/premium.js`, `package.json`, `index.js` (oraz zachowaj `src/audio-buffer.js`, który jest już w repo). **Cloudflare Worker i strona WWW nie wymagają wdrożenia** dla tej aktualizacji. Zachowaj `.env`, `data/`, `music/`, `bin/`; ustawienia i licencje Premium zostają. Zrestartuj bota po zmianach.
+
+## NeonBeats 3.7.1 — RADIO STABILITY
+
+Naprawa przerw dźwięku przede wszystkim podczas radia online (Icecast / Shoutcast / strumienie HTTP):
+- Biblioteka Discord Voice zwykle dopuszcza tylko 5 brakujących ramek PCM/Opus (około 100 ms), po czym kończy odtwarzanie. NeonBeats toleruje teraz maksymalnie 100 kolejnych braków ramek (~2 s ciszy) przed rozłączeniem zasobu. To nie odtwarza brakujących danych, lecz ogranicza kosztowne przerywanie i ponowne uruchamianie całego radia przy drobnych opóźnieniach.
+- Oddzielny bufor startowy **radia i strumieni live**: domyślnie **1000 ms**, konfigurowalny przez `NEONBEATS_RADIO_PREBUFFER_MS` (0–3000). `NEONBEATS_PREBUFFER_MS` pozostaje ustawieniem m.in. YouTube (0–800).
+- Kiedy stacja zamknie zwykłe połączenie HTTP bez błędu, NeonBeats traktuje to jako zerwanie radia i automatycznie próbuje odtworzyć ponownie.
+- Ręcznie wybrane stacje otrzymują maks. trzy próby w ciągu 2 minut; po dłuższym okresie udanej pracy licznik prób jest resetowany. Radio 24/7 może wracać do nadawania po kolejnych przerwach, z rosnącym czasem oczekiwania, by nie przeciążać hostingu.
+- `/status` pokazuje bieżący bufor radia i YouTube oraz tolerancję brakujących ramek. `/radio diagnoza` pomaga ocenić problemy konkretnej stacji.
+- Komendy /radio, YouTube, Premium, zapisane playlisty oraz Web Control pozostają dostępne; Cloudflare nie wymaga ponownego wdrożenia.
+
+**Aktualizacja ALTARE:** podmień `src/player.js`, `src/bot.js`, `package.json`, `index.js`. Pozostaw `.env`, `data/`, `music/`, `bin/`; jeśli wcześniejsze wydanie FASTSTREAM nie było zainstalowane w całości, pobierz cały aktualny katalog `src/` poza Twoimi danymi prywatnymi. Restart po zmianach. W `.env` możesz dodać `NEONBEATS_RADIO_PREBUFFER_MS=1000`; na szczególnie niestabilnym łączu spróbuj `1500`. Większa wartość wydłuża start, ale nie naprawi przeciążonego CPU ALTARE, złego adresu strumienia ani awarii rozgłośni.
