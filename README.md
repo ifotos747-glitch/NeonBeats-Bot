@@ -92,3 +92,14 @@ Dodaj playlistę przez `/youtube playlista url:<link>` albo `/play source:<link 
 Importer odczytuje maksymalnie 100 pozycji naraz, z możliwością wyboru zakresu: `/youtube playlista url:<link> od:1 ile:100`, potem `od:101 ile:100`. Obsługiwane są różne warianty metadanych płaskich playlist (`id`, `url`, `webpage_url`), w tym pozycje bez tytułu. Bot nie odrzuca utworów tylko ze względu na niepełne metadane i pokazuje osobno liczbę jawnie niedostępnych pozycji, nierozpoznanych identyfikatorów i nieprawidłowych danych. Niektóre pozycje mogą być pominięte już przez YouTube/yt-dlp bez przekazania JSON; raport dotyczy odebranych pozycji, a nie gwarantowanej całkowitej liczby playlisty. W odtwarzaniu pojedynczych filmów zwiększono tolerancję na przejściowe błędy sieci dzięki ograniczonej liczbie ponownych prób yt-dlp. Filmy prywatne, usunięte, DRM lub wymagające logowania nadal mogą być nieodtwarzalne. Nie używaj cookies ani prób obchodzenia blokad YouTube.
 
 Dla filmów YouTube odtwarzacz czeka teraz maksymalnie 90 sekund na pierwsze audio (zamiast wcześniejszych 30 sekund), aby nie odrzucać utworów tylko z powodu wolniejszego odczytu metadanych lub startu transmisji na hostingu. Pozostałe źródła zachowują 30-sekundowy limit.
+
+## NeonBeats 3.7 — FASTSTREAM (wydajność i zgodność)
+
+- `/play` dla YouTube natychmiast dodaje utwór, a jego tytuł pobiera asynchronicznie; publiczne metadane nie opóźniają startu audio ani odpowiedzi Discord.
+- Web Control wykonuje komendy niezależnie dla każdego serwera (jednocześnie między serwerami, w kolejności wewnątrz jednego serwera). Zmniejszono liczbę odczytów JSON podczas odświeżania.
+- Panel Discord łączy szybkie zmiany w jeden nowszy stan i ogranicza częste edycje wiadomości (800 ms).
+- Dla internetowego audio domyślnie używany jest krótki bufor PCM 280 ms (ustaw `NEONBEATS_PREBUFFER_MS=0` dla wyłączenia, 0–800 ms); wykrywanie zatrzymania danych po 30 sekundach aktywnego odtwarzania.
+- Ręcznie uruchomione radio/strumienie mają maksymalnie trzy próby automatycznego ponowienia po błędach; radio 24/7 zachowuje własny mechanizm ponawiania. Discord Voice toleruje dłużej krótkie przerwy połączenia.
+- YouTube nadal zależy od możliwości `yt-dlp`, zasobów ALTARE i ograniczeń samego YouTube. Nie wszystkie filmy mogą być odtwarzane; nie używaj cudzych cookies. Po instalacji sprawdź `/youtube status` i w razie potrzeby `/youtube aktualizuj`.
+
+Zaktualizuj na ALTARE: `src/bot.js`, `src/player.js`, `src/web-control.js`, `src/premium.js`, `package.json`, `index.js` (oraz zachowaj `src/audio-buffer.js`, który jest już w repo). **Cloudflare Worker i strona WWW nie wymagają wdrożenia** dla tej aktualizacji. Zachowaj `.env`, `data/`, `music/`, `bin/`; ustawienia i licencje Premium zostają. Zrestartuj bota po zmianach.
