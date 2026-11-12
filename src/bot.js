@@ -3,7 +3,7 @@ const {Client,GatewayIntentBits,Events,EmbedBuilder,ActionRowBuilder,ButtonBuild
 const {execFile}=require('node:child_process');
 const {ffmpegPath,BOT_NAME,VERSION}=require('./config');
 const {musicFiles,localFile,classifyInput}=require('./media');
-const store=require('./store'),radio=require('./global-radio'),{sessions,ensureSession,audioBufferMs,MAX_MISSED_FRAMES}=require('./player');
+const store=require('./store'),radio=require('./global-radio'),{sessions,ensureSession,audioBufferMs,MAX_MISSED_FRAMES,radioCodec}=require('./player');
 const {diagnoseStream,diagnoseLocalFFmpeg,diagnoseHttp,formatDiagnostic}=require('./diagnostics');
 const {normalizeYouTubeUrl,youtubeVideoTitle,ytDlpPath,ytDlpTempStatus,installYtDlp,updateYtDlp,ytDlpVersion,diagnoseYouTube}=require('./youtube');
 const {MAX_PLAYLIST_ITEMS,isYouTubePlaylistUrl,loadYoutubePlaylist}=require('./youtube-playlist');
@@ -142,10 +142,14 @@ async function slash(i){
    (s?.connection.state.status||'brak')+'\nPlayer: '+(s?.player.state.status||'brak')+
    '\nPliki: '+musicFiles().length+'\nStacje globalne: '+radio.list().length+
    '\n24/7: '+(d.alwaysOn?.mode||'wyłączony')+'\nDJ: '+d.dj+
+   '\nTryb radia: '+(s?.radioOpus?'OPUS NATYWNY':(radioCodec()==='opus'&&s?.nativeOpusFailed?'PCM (powrót po błędzie)':'PCM'))+
    '\nBufor radia: '+audioBufferMs({kind:'radio'})+' ms | bufor YouTube: '+audioBufferMs({kind:'youtube-link'})+' ms'+
    '\nTolerancja krótkich przerw: '+MAX_MISSED_FRAMES*20+' ms'+
    (s?.radioStats?'\n📻 Radio live: bufor '+s.radioStats.bufferedMs+' ms (maks. '+s.radioStats.peakBufferedMs+' ms)'+
-    '\n📉 Odczyty bez PCM: '+s.radioStats.underruns+' | min. ciszy przy niedoborze: '+s.radioStats.silenceMs+' ms':'')+
+    (s.radioOpus?
+     '\n📦 Opus: odebrane pakiety '+s.radioStats.receivedPackets+' | wysłane do odtwarzacza '+s.radioStats.playedPackets+
+     ' | odczyty bez pakietu: '+s.radioStats.underruns:
+     '\n📉 Odczyty bez PCM: '+s.radioStats.underruns+' | min. ciszy przy niedoborze: '+s.radioStats.silenceMs+' ms'):'')+
    (health?'\n📡 MP3 HTTP: '+health.httpBytes+' B | porcje: '+health.httpChunks+
     '\nPrzerwy odczytu >0,5s: '+health.readGaps500+' | >2s: '+health.readGaps2000+' | najdłuższa: '+health.maxReadGapMs+' ms'+
     '\nFFmpeg ostrzeżenia audio: '+health.decoderWarnings+
