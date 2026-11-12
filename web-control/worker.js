@@ -8,6 +8,9 @@ const SEC=1000;
 const SESSION_TTL=90*24*60*60*SEC; // Renewed on activity; Discord tokens are separately refreshed.
 const REFRESH_MARGIN=5*60*SEC;
 const COOKIE_MAX_AGE=Math.floor(SESSION_TTL/SEC);
+// A short per-isolate cache avoids calling Discord every 7 seconds for the same session.
+// Permissions are rechecked at least once a minute and on new isolates.
+const guildCache=new Map(), GUILD_CACHE_MS=45_000;
 function sessionCookie(id){return COOKIE+'='+id+'; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age='+COOKIE_MAX_AGE;}
 const now=()=>Date.now();
 const validGuild=id=>/^\d{15,24}$/.test(String(id||''));
@@ -23,7 +26,7 @@ function isBridge(request,env){
 }
 async function apiDiscord(route,token){
  const r=await fetch('https://discord.com/api/v10'+route,{headers:{authorization:'Bearer '+token,'accept':'application/json'}});
- if(!r.ok)throw Error('DISCORD_'+r.status);
+ if(!r.ok){const error=Error('DISCORD_'+r.status);error.discordStatus=r.status;throw error;}
  return r.json();
 }
 async function refreshDiscordToken(env,id,stored,oldValue){
@@ -56,11 +59,16 @@ async function session(request,env){
  if(token.access_expires_at<=now()+REFRESH_MARGIN){
   try{token=await refreshDiscordToken(env,id,token,s.access_token);}
   catch(e){
-   // A concurrent request may have refreshed first: check the latest stored token.
+   // Concurrent refreshes can rotate Discord refresh tokens. Check the latest saved token.
    const latest=await env.DB.prepare('SELECT access_token FROM sessions WHERE id=?').bind(id).first();
-   if(!latest||latest.access_token===s.access_token)return null;
-   try{token=JSON.parse(latest.access_token);}catch{return null;}
-   if(!token.access_token||token.access_expires_at<=now())return null;
+   if(latest&&latest.access_token!==s.access_token){
+    try{token=JSON.parse(latest.access_token);}catch{return null;}
+    if(!token.access_token)return null;
+   }else if(token.access_expires_at<=now()){
+    // Discord might be temporarily unavailable. Do not pretend the browser session expired.
+    const error=Error('DISCORD_REFRESH_UNAVAILABLE');error.temporary=true;throw error;
+   }
+   // If the access token is still valid, retry refresh on the next request.
   }
  }
  if(s.expires_at<now()+SESSION_TTL-24*60*60*SEC)
@@ -68,8 +76,13 @@ async function session(request,env){
  return {id,user_id:s.user_id,access_token:token.access_token};
 }
 async function authorizedGuilds(sessionInfo){
+ const cached=guildCache.get(sessionInfo.id);
+ if(cached&&cached.expires>now())return cached.guilds;
  const guilds=await apiDiscord('/users/@me/guilds',sessionInfo.access_token);
- return guilds.filter(g=>g.owner||(BigInt(g.permissions||'0')&40n)!==0n).map(g=>({id:g.id,name:g.name,icon:g.icon}));
+ const allowed=guilds.filter(g=>g.owner||(BigInt(g.permissions||'0')&40n)!==0n).map(g=>({id:g.id,name:g.name,icon:g.icon}));
+ if(guildCache.size>200)guildCache.clear();
+ guildCache.set(sessionInfo.id,{guilds:allowed,expires:now()+GUILD_CACHE_MS});
+ return allowed;
 }
 function validAction(body){
  if(!body||typeof body!=='object')return false;
@@ -128,7 +141,7 @@ async function handle(request,env){
  if(pathname==='/auth/logout'&&request.method==='POST'){
   if(!secureOrigin(request,env))return fail('Błędne pochodzenie żądania.',403);
   const id=cookie(request,COOKIE);
-  if(id)await env.DB.prepare('DELETE FROM sessions WHERE id=?').bind(id).run();
+  if(id){await env.DB.prepare('DELETE FROM sessions WHERE id=?').bind(id).run();guildCache.delete(id);}
   const h=new Headers({'content-type':'application/json','cache-control':'no-store'});
   h.set('set-cookie',COOKIE+'=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');
   return new Response('{"ok":true}',{headers:h});
@@ -154,7 +167,13 @@ async function handle(request,env){
  if(pathname.startsWith('/api/')){
   const s=await session(request,env);
   if(!s)return fail('Zaloguj się przez Discord.',401);
-  let guilds;try{guilds=await authorizedGuilds(s);}catch{return fail('Sesja Discord wygasła. Zaloguj się ponownie.',401);}
+  let guilds;
+  try{guilds=await authorizedGuilds(s);}
+  catch(e){
+   // A transient Discord outage or 429 must never be shown as a logout.
+   if(e.discordStatus===401||e.discordStatus===403)return fail('Autoryzacja Discord została cofnięta. Zaloguj się ponownie.',401);
+   return fail('Discord jest chwilowo niedostępny. Sesja pozostaje aktywna — spróbuj ponownie.',503);
+  }
   if(pathname==='/api/me'&&request.method==='GET')return json({userId:s.user_id,guilds:await Promise.all(guilds.map(async g=>({...g,botOnline:!!(await botOnline(env,g.id))})))});
   const match=pathname.match(/^\/api\/guild\/(\d{15,24})(?:\/(control))?$/);
   if(match){
@@ -196,6 +215,7 @@ export default {async fetch(request,env){
   return response;
  }catch(e){
   console.error('NeonBeats Web Control',e);
+  if(e.temporary)return fail('Discord nie odpowiada podczas odnowienia tokenu. Sesja nadal istnieje — ponów próbę.',503);
   return fail('Błąd serwera. Sprawdź konfigurację Cloudflare.',500);
  }
 }};
