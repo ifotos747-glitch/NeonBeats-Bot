@@ -211,12 +211,19 @@ async function slash(i){
    const url=normalizeYouTubeUrl(x.source);
    if(!ytDlpPath())return i.reply({content:'⚠️ YouTube wymaga konfiguracji. Administrator: /youtube install.',...hidden});
    x.source=url;
-   // A quick public metadata lookup; do not run another PyInstaller yt-dlp
-   // process or block playback if YouTube does not expose the title.
-   await i.deferReply(hidden);
-   x.title=await youtubeVideoTitle(url)||'YouTube • '+new URL(url).searchParams.get('v');
-   join(i).enqueue(x);
-   return i.editReply({content:'✅ Dodano: '+clean(x.title)});
+   // Enqueue immediately: public YouTube title lookup is optional and must never
+   // delay the Discord interaction or starting the stream on slow ALTARE hosts.
+   x.title='YouTube • '+new URL(url).searchParams.get('v');
+   const session=join(i);
+   session.enqueue(x);
+   void youtubeVideoTitle(url).then(title=>{
+    if(!title||session.closed)return;
+    if(session.current===x||session.queue.includes(x)){
+     x.title=title;
+     void session.showControlPanel(session.current);
+    }
+   }).catch(()=>{});
+   return i.reply({content:'✅ Dodano do kolejki: '+clean(x.title),...hidden});
   }
   if(x.kind==='stream')requireAdmin(i);
   join(i).enqueue(x);return i.reply({content:'✅ Dodano: '+clean(x.title)});
