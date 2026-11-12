@@ -20,6 +20,19 @@ test('remote commands do not control guilds not joined by bot',async()=>{
  const client={guilds:{cache:new Map()}};
  await assert.rejects(perform(client,{guild_id:'1471988860828516423',action:'stop',value:null}),/członkiem/);
 });
+test('Premium list and management remain restricted to bot owner',async()=>{
+ const owner='1471988860828516423',other='123456789012345679';
+ const prev=process.env.BOT_OWNER_ID;
+ process.env.BOT_OWNER_ID=owner;
+ const guild={id:owner,name:'Test server'};
+ const client={guilds:{cache:new Map([[guild.id,guild]])}};
+ try{
+  await assert.rejects(perform(client,{guild_id:guild.id,action:'premium-list',user_id:other,value:'0'}),/właściciel/);
+  const response=JSON.parse(await perform(client,{guild_id:guild.id,action:'premium-list',user_id:owner,value:'0'}));
+  assert.equal(Array.isArray(response.items),true);
+  await assert.rejects(perform(client,{guild_id:guild.id,action:'premium-manage',user_id:owner,value:JSON.stringify({guildId:other,operation:'grant',days:30})}),/nie należy/);
+ }finally{if(prev===undefined)delete process.env.BOT_OWNER_ID;else process.env.BOT_OWNER_ID=prev;}
+});
 test('remote commands validate guild IDs and actions',async()=>{
  const client={guilds:{cache:new Map()}};
  await assert.rejects(perform(client,{guild_id:'../../../../etc',action:'stop',value:null}),/Niepoprawne/);
