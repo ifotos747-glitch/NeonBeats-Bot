@@ -73,10 +73,16 @@ async function authorizedGuilds(sessionInfo){
 }
 function validAction(body){
  if(!body||typeof body!=='object')return false;
- const allowed=['pause','resume','skip','stop','shuffle','repeat','volume','play','radio','dj','clear'];
+ const allowed=['pause','resume','skip','stop','shuffle','repeat','volume','play','playlist','radio','dj','clear'];
  if(!allowed.includes(body.action))return false;
  if(body.action==='volume')return Number.isInteger(body.value)&&body.value>=0&&body.value<=150;
  if(body.action==='play')return typeof body.value==='string'&&body.value.length<=500&&/^https:\/\/(?:www\.)?(?:youtube\.com|youtu\.be|music\.youtube\.com)\//i.test(body.value);
+ if(body.action==='playlist'){
+  const p=body.value;
+  if(!p||typeof p!=='object'||typeof p.url!=='string'||p.url.length>500||!Number.isInteger(p.start)||p.start<1||p.start>10000||!Number.isInteger(p.limit)||p.limit<1||p.limit>100||p.start+p.limit-1>10000)return false;
+  let url;try{url=new URL(p.url);}catch{return false;}
+  return url.protocol==='https:'&&['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtu.be','www.youtu.be'].includes(url.hostname)&&url.searchParams.has('list');
+ }
  if(body.action==='radio')return typeof body.value==='string'&&body.value.length>0&&body.value.length<=100;
  if(body.action==='dj')return ['off','bass','nightcore','slowed','8d','echo','club'].includes(body.value);
  return body.value===undefined||body.value===null;
