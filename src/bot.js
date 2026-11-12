@@ -8,6 +8,7 @@ const {diagnoseStream,diagnoseLocalFFmpeg,diagnoseHttp,formatDiagnostic}=require
 const {normalizeYouTubeUrl,youtubeVideoTitle,ytDlpPath,ytDlpTempStatus,installYtDlp,updateYtDlp,ytDlpVersion,diagnoseYouTube}=require('./youtube');
 const {MAX_PLAYLIST_ITEMS,isYouTubePlaylistUrl,loadYoutubePlaylist}=require('./youtube-playlist');
 const {startWebControl}=require('./web-control');
+const premium=require('./premium');
 const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildVoiceStates]});
 const hidden={flags:MessageFlags.Ephemeral};
 function clean(x){return String(x||'').replace(/[\r\n*@<>]/g,' ').slice(0,140);}
@@ -101,11 +102,37 @@ async function button(i){
 }
 async function slash(i){
  const n=i.commandName;
- const sub=['radio','autodj','247','dj','playlist','youtube'].includes(n)?i.options.getSubcommand():'';
+ const sub=['radio','autodj','247','dj','playlist','youtube','premium'].includes(n)?i.options.getSubcommand():'';
  if(n==='neonhelp')return i.reply({embeds:[embed('🎧 NEONBEATS '+VERSION+' — KOMENDY',
   '/play /queue /nowplaying /pause /resume /skip /stop /leave /volume /panel\n'+
   '/radio szukaj|list|play|stop|ulubione|admin\n/youtube install|aktualizuj|napraw|status|diagnoza|playlista\n/autodj on|off\n/247 on|off|status\n'+
-  '/dj preset|off|status\n/playlist save|load|list|delete\n/status /files /testaudio')],...hidden});
+  '/dj preset|off|status\n/playlist save|load|list|delete\n/premium status [serwer-id] | lista\n/status /files /testaudio')],...hidden});
+ if(n==='premium'){
+  if(sub==='status'){
+   const target=i.options.getString('serwer-id')||i.guildId;
+   if(target!==i.guildId)premium.requireOwner(i.user.id);
+   if(!/^\d{15,24}$/.test(target))throw Error('Podaj poprawne ID serwera Discord.');
+   if(!client.guilds.cache.has(target))throw Error('NeonBeats nie jest członkiem podanego serwera.');
+   const guild=client.guilds.cache.get(target),state=premium.status(target);
+   const description='Serwer: '+clean(guild?.name||target)+'\nID: '+target+
+    '\nStatus: '+(state.active?'👑 Premium AKTYWNE':'🔒 Free / nieaktywne')+
+    '\nWygasa: '+(state.expiresAt?new Date(state.expiresAt).toISOString().slice(0,10):'brak')+
+    '\nPozostało: '+state.daysLeft+' dni'+
+    '\nLimit playlist: '+state.limits.playlists+
+    '\nLimit ulubionych: '+state.limits.favorites;
+   return i.reply({embeds:[embed('👑 NEONBEATS PREMIUM • STATUS',description)],...hidden});
+  }
+  if(sub==='lista'){
+   premium.requireOwner(i.user.id);
+   const servers=[...client.guilds.cache.values()].map(g=>({id:g.id,name:g.name}));
+   const result=premium.list(servers,0);
+   const rows=result.items.map(g=>'• '+clean(g.name)+' ('+g.id+') — '+(g.active?'👑 '+g.daysLeft+' dni':g.revoked?'cofnięte':'wygasłe'));
+   const info='Łącznie: '+result.total+' | Aktywne: '+result.active+' | Nieaktywne: '+result.expired+
+     '\n'+(rows.join('\n')||'Brak aktywacji.')+
+     (result.pages>1?'\nPozostałe wyniki: Premium Admin Center w Web Control.':'');
+   return i.reply({embeds:[embed('👑 PREMIUM • SERWERY',info)],...hidden});
+  }
+ }
  if(n==='panel'){const session=sessions.get(i.guildId);return i.reply(panel(session?.current||null,session));}
  if(n==='status'){
   await i.deferReply(hidden);const s=sessions.get(i.guildId),d=store.read(i.guildId);
