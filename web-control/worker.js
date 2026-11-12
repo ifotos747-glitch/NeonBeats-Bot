@@ -86,11 +86,17 @@ async function authorizedGuilds(sessionInfo){
 }
 function validAction(body){
  if(!body||typeof body!=='object')return false;
- const allowed=['pause','resume','skip','stop','shuffle','repeat','volume','play','playlist','radio','dj','clear','search','save-list','load-list','delete-list','queue-move','queue-remove','favorite-add','favorite-remove','radio-search','premium-grant','premium-revoke','premium-status'];
+ const allowed=['pause','resume','skip','stop','shuffle','repeat','volume','play','playlist','radio','dj','clear','search','save-list','load-list','delete-list','queue-move','queue-remove','favorite-add','favorite-remove','radio-search','premium-grant','premium-revoke','premium-status','premium-list','premium-manage'];
  if(!allowed.includes(body.action))return false;
  if(body.action==='queue-remove')return Number.isInteger(body.value)&&body.value>=0&&body.value<100;
  if(body.action==='queue-move')return !!body.value&&Number.isInteger(body.value.from)&&Number.isInteger(body.value.to)&&body.value.from>=0&&body.value.from<100&&body.value.to>=0&&body.value.to<100;
  if(['favorite-add','favorite-remove'].includes(body.action))return typeof body.value==='string'&&/^https:\/\/www\.youtube\.com\/watch\?v=[a-zA-Z0-9_-]{11}$/.test(body.value);
+ if(body.action==='premium-list')return body.value===undefined||Number.isInteger(body.value)&&body.value>=0&&body.value<=10000;
+ if(body.action==='premium-manage'){
+  const v=body.value;
+  return !!v&&typeof v==='object'&&/^\d{15,24}$/.test(String(v.guildId||''))&&['grant','revoke'].includes(v.operation)&&
+   (v.operation==='revoke'||Number.isInteger(v.days)&&v.days>=1&&v.days<=3650);
+ }
  if(body.action==='premium-grant')return Number.isInteger(body.value)&&body.value>=1&&body.value<=3650;
  if(body.action==='premium-revoke'||body.action==='premium-status')return body.value===undefined||body.value===null;
  if(body.action==='radio-search')return typeof body.value==='string'&&body.value.trim().length>0&&body.value.length<=70;
@@ -160,7 +166,7 @@ async function handle(request,env){
    'INSERT INTO snapshots(guild_id,payload,updated_at) VALUES(?,?,?) ON CONFLICT(guild_id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at WHERE snapshots.payload<>excluded.payload OR snapshots.updated_at<excluded.updated_at-15000'
   ).bind(g.id,JSON.stringify({connected:!!g.connected,channelId:g.channelId||null,nowPlaying:String(g.nowPlaying||'').slice(0,140),nowSource:typeof g.nowSource==='string'&&/^https:\/\/www\.youtube\.com\/watch\?v=[\w-]{11}$/.test(g.nowSource)?g.nowSource:null,history:(g.history||[]).slice(0,30).map(x=>({title:String(x.title||'').slice(0,140),source:String(x.source||'').slice(0,500),kind:String(x.kind||'').slice(0,30),at:Number(x.at)||0})),savedPlaylists:(g.savedPlaylists||[]).slice(0,50).map(x=>({name:String(x.name||'').slice(0,40),count:Number(x.count)||0})),favorites:(g.favorites||[]).slice(0,250).filter(x=>x.kind==='youtube-link'&&/^https:\/\/www\.youtube\.com\/watch\?v=[\w-]{11}$/.test(x.source)).map(x=>({kind:'youtube-link',source:x.source,title:String(x.title||'YouTube').slice(0,140)})),stats:{total:Math.max(0,Number(g.stats?.total)||0),youtube:Math.max(0,Number(g.stats?.youtube)||0),radio:Math.max(0,Number(g.stats?.radio)||0),other:Math.max(0,Number(g.stats?.other)||0)},radioCount:Math.max(0,Number(g.radioCount)||0),premium:{active:g.premium?.active===true,expiresAt:Number(g.premium?.expiresAt)||null,daysLeft:Math.max(0,Math.floor(Number(g.premium?.daysLeft)||0)),limits:{playlists:g.premium?.active?50:25,favorites:g.premium?.active?250:100}},queueTotal:Math.max(0,Number(g.queueTotal)||0),queueTracks:(g.queueTracks||[]).slice(0,100).map(x=>({title:String(x.title||'').slice(0,140),source:typeof x.source==='string'&&/^https:\/\/www\.youtube\.com\/watch\?v=[\w-]{11}$/.test(x.source)?x.source:null})),queue:(g.queue||[]).slice(0,15).map(x=>String(x).slice(0,140)),volume:g.volume??85,repeat:g.repeat||'off',dj:g.dj||'off',playerStatus:g.playerStatus||'idle'}),now()));
   for(let i=0;i<batch.length;i+=50)await env.DB.batch(batch.slice(i,i+50));
-  const cmds=await env.DB.prepare("UPDATE commands SET status='running' WHERE id IN (SELECT id FROM commands WHERE status='pending' ORDER BY created_at ASC LIMIT 15) RETURNING id,guild_id,action,value").all();
+  const cmds=await env.DB.prepare("UPDATE commands SET status='running' WHERE id IN (SELECT id FROM commands WHERE status='pending' ORDER BY created_at ASC LIMIT 15) RETURNING id,guild_id,user_id,action,value").all();
   return json({commands:cmds.results||[]});
  }
  if(pathname==='/api/bridge/result'&&request.method==='POST'){
@@ -191,7 +197,7 @@ async function handle(request,env){
    if(request.method==='POST'&&match[2]){
     if(!secureOrigin(request,env)||!(request.headers.get('content-type')||'').startsWith('application/json'))return fail('Zablokowano żądanie.',403);
     const body=await request.json();
-    if(!bot.connected&&!['premium-grant','premium-revoke','premium-status'].includes(body.action))return fail('Najpierw uruchom odtwarzanie na kanale Discord, aby połączyć bota z głosem.',409);
+    if(!bot.connected&&!['premium-grant','premium-revoke','premium-status','premium-list','premium-manage'].includes(body.action))return fail('Najpierw uruchom odtwarzanie na kanale Discord, aby połączyć bota z głosem.',409);
     if(!validAction(body))return fail('Niepoprawna komenda.',400);
     const id=crypto.randomUUID();
     await env.DB.prepare('INSERT INTO commands(id,guild_id,user_id,action,value,status,created_at,result) VALUES(?,?,?,?,?,?,?,?)').bind(id,guildId,s.user_id,body.action,body.value===undefined?null:JSON.stringify(body.value),'pending',now(),'').run();
