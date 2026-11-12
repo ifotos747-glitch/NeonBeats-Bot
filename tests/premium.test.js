@@ -43,4 +43,22 @@ test('Premium increases limits without discarding existing items after expiry',(
  assert.equal(store.loadPlaylist(guild,'Playlist 0').length,1);
 });
 
+test('Premium Admin Center lists guilds, actor and previous activation dates',()=>{
+ const date=Date.now();
+ premium.grant(guild,7,owner,date);
+ const result=premium.list([{id:guild,name:'Premium Gaming'}],0,date);
+ assert.equal(result.total,1);
+ assert.equal(result.active,1);
+ assert.equal(result.items[0].updatedBy,owner);
+ assert.equal(result.items[0].createdAt,date);
+ assert.equal(result.items[0].daysLeft,7);
+ premium.revoke(guild,owner,date+day);
+ const revoked=premium.list([{id:guild,name:'Premium Gaming'}],0,date+day);
+ assert.equal(revoked.items[0].revoked,true);
+ assert.equal(revoked.expired,1);
+ assert.equal(revoked.items[0].createdAt,date);
+ assert.equal(store.read(guild).premium.history.at(-1).action,'revoke');
+ assert.equal(premium.list([{id:guild,name:'Premium Gaming'}],1,date).items.length,0);
+ assert.throws(()=>premium.list([], -1),/strona/);
+});
 test.after(()=>fs.rmSync(dir,{force:true,recursive:true}));
