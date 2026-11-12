@@ -131,3 +131,18 @@ The existing `NEONBEATS_RADIO_PREBUFFER_MS` setting remains 0–3000 ms; recomme
 On ALTARE update `src/audio-buffer.js`, `src/player.js`, `src/bot.js`, `package.json`, `index.js` (and when upgrading from earlier than 3.7.2 also `src/diagnostics.js`). Do not overwrite `.env`, `data/`, `music/` or `bin/`. Restart bot. No Cloudflare/SQL update required.
 
 Test actual uninterrupted playback for 10–15 minutes and compare `/status` counters at the start and after audio glitches. GitHub tests validate buffer behavior but do not simulate actual ALTARE network/CPU conditions.
+
+## NeonBeats 3.7.5 — RADIO TRACE
+
+W teście `/testaudio` lokalny plik WAV grał płynnie na tym samym kanale Discord, podczas gdy Radio Club Dj miało niewielkie zakłócenia, a bufor PCM pozostawał pełny. Oznacza to, że warto odróżnić **odbiór i dekodowanie MP3** od samego połączenia głosowego; nie dowodzi to jeszcze jednej konkretnej przyczyny.
+
+Nowy `/status` oprócz dotychczasowych statystyk wyświetla dla aktywnego radia:
+- **MP3 HTTP:** liczba bajtów i porcji odczytanych z sieci przez Node.js;
+- **Przerwy odczytu:** liczba odstępów pomiędzy otrzymanymi porcjami dłuższych niż 500 ms i 2000 ms oraz największy odstęp;
+- **Ostrzeżenia FFmpeg:** licznik wykrytych ostrzeżeń i ostatni zanonimizowany komunikat o nieprawidłowych ramkach, uszkodzonych danych lub problemach dekodowania MP3.
+
+**Interpretacja:** przerwy między odczytami mogą wynikać także z normalnego *backpressure* (przy pełnym buforze PCM odtwarzacz celowo ogranicza pobieranie), więc sama duża liczba przerw HTTP nie dowodzi usterki sieci. Ostrzeżenia o uszkodzonych ramkach MP3 są istotniejszym sygnałem. Liczniki są lokalne dla sesji i resetują się przy restarcie strumienia.
+
+W 3.7.5 nie zmieniano algorytmu audio ani rozmiarów buforów — wydanie dodaje **pomiar problemu** bez niepotrzebnych zmian w stabilnym odtwarzaniu. ALTARE: podmień `src/network.js`, `src/player.js`, `src/bot.js`, dodaj `src/radio-health.js`, zaktualizuj `package.json` i `index.js`. Zachowaj `.env`, `data/`, `music/`, `bin/`. Cloudflare/D1 nie wymaga nowego wdrożenia.
+
+Po restarcie posłuchaj tej samej stacji przez 10 minut i uruchom `/status` raz przed zauważonym zacięciem i drugi raz tuż po nim. Podaj szczególnie liczbę ostrzeżeń FFmpeg i nowych przerw odczytu MP3; sprawdź w osobnym teście jedną z pozostałych stacji globalnych, aby wykluczyć charakterystykę konkretnego MP3.
