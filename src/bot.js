@@ -104,7 +104,7 @@ async function slash(i){
   if(sub==='status'){
    const status=await ytDlpVersion();
    const temp=ytDlpTempStatus();
-   const tempInfo='\\n📁 Katalog tymczasowy: '+clean(temp.path)+
+   const tempInfo='\n📁 Katalog tymczasowy: '+clean(temp.path)+
      (temp.availableMB===null?' | brak danych o wolnym miejscu':' | dostępne: '+temp.availableMB+' MB')+
      (temp.lowSpace?' ⚠️ Mało miejsca':'')+
      (temp.error?' | '+clean(temp.error):'');
@@ -114,13 +114,13 @@ async function slash(i){
    await i.deferReply(hidden);
    const info=await ytDlpVersion();
    const temp=ytDlpTempStatus();
-   const details='\\n📁 TMP: '+clean(temp.path)+
+   const details='\n📁 TMP: '+clean(temp.path)+
      (temp.availableMB===null?' | wolne miejsce nieznane':' | wolne: '+temp.availableMB+' MB')+
      (temp.lowSpace?' ⚠️ Mało miejsca':'')+
      (temp.error?' | '+clean(temp.error):'');
    return i.editReply({content:(info.ok?
-     '✅ Silnik yt-dlp: '+clean(info.description)+'\\nSprawdź /youtube diagnoza dla filmu.':
-     '⚠️ '+clean(info.description)+'\\nBłąd PYI oznacza problem rozpakowywania silnika na hostingu, nie formatu audio. Sprawdź katalog i wolne miejsce ALTARE.')+details});
+     '✅ Silnik yt-dlp: '+clean(info.description)+'\nSprawdź /youtube diagnoza dla filmu.':
+     '⚠️ '+clean(info.description)+'\nBłąd PYI oznacza problem rozpakowywania silnika na hostingu, nie formatu audio. Sprawdź katalog i wolne miejsce ALTARE.')+details});
   }
   if(sub==='playlista'){
    await i.deferReply(hidden);
