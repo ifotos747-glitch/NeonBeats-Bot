@@ -112,3 +112,9 @@ Bez konfiguracji Worker+D1+sekretów przycisk Web Control na statycznej stronie 
 - Przeciążenia ALTARE i ograniczenia YouTube wciąż mogą wpływać na dostępność odtwarzania.
 - D1 snapshoty odświeżane są tylko gdy stan się zmieni lub minie 15 sekund, aby oszczędzać limity Cloudflare.
 - Nie uruchamiaj równocześnie dwóch kopii bota z tym samym BRIDGE_SECRET, bo mogłyby wykonywać polecenia z różnych procesów.
+
+## Długie logowanie (aktualizacja Web Control)
+
+Sesja przeglądarkowa trwa do **90 dni bez aktywności** i odnawia się przy korzystaniu z panelu. Worker automatycznie odnawia krótkotrwały token dostępu Discord za pomocą tokenu odświeżania OAuth2. W D1 nie trzeba dodawać żadnych kolumn ani uruchamiać nowego SQL: pole `sessions.access_token` przechowuje teraz dane sesji OAuth w JSON (dostęp i odświeżanie) wyłącznie po stronie Cloudflare.
+
+**Po pierwszym wdrożeniu zaloguj się ponownie przez Discord jeden raz** — stare sesje nie zawierają tokenu odświeżania. Późniejsze odnawianie działa automatycznie. Sesja może nadal zakończyć się po 90 dniach nieaktywności, wylogowaniu, usunięciu cookies, cofnięciu dostępu OAuth albo unieważnieniu tokenu przez Discord. To nie jest logowanie bezterminowe, a bezpieczna odnawialna sesja.
