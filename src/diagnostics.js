@@ -2,7 +2,7 @@
 const {spawn}=require('node:child_process');
 const {ffmpegPath}=require('./config');
 const {validatePublicUrl}=require('./media');
-const {openAudioResponse}=require('./network');
+const {openAudioResponse,pipeHttpAudio}=require('./network');
 
 function redactFFmpeg(raw) {
  return String(raw||'')
@@ -45,14 +45,49 @@ function probeFFmpeg(args,{spawnProcess=spawn,timeoutMs=20000}={}) {
   timer.unref?.();
  });
 }
-function diagnoseStream(rawUrl,options={}) {
+// Test the SAME MP3/AAC radio path as MusicSession: Node fetch -> FFmpeg stdin.
+// Opening HTTP directly inside FFmpeg crashes with SIGSEGV on some hosts.
+function diagnoseStream(rawUrl,{spawnProcess=spawn,pipeAudio=pipeHttpAudio,timeoutMs=18000}={}) {
  const url=validatePublicUrl(rawUrl).href;
- return probeFFmpeg([
-  '-nostdin','-hide_banner','-loglevel','info',
-  '-rw_timeout','12000000','-i',url,
-  '-t','5','-vn','-sn','-dn',
-  '-ac','2','-ar','48000','-f','s16le','pipe:1'
- ],options);
+ return new Promise(resolve=>{
+  const startedAt=Date.now(),controller=new AbortController();
+  let child,timer,bytes=0,stderr='',done=false,timedOut=false;
+  const finish=(exitCode,signal,err)=>{
+   if(done)return;
+   done=true;clearTimeout(timer);controller.abort();
+   try{child?.stdin?.destroy();}catch{}
+   resolve({
+    ok:bytes>0,bytes,exitCode:exitCode??null,signal:signal??null,timedOut,
+    durationMs:Date.now()-startedAt,method:'node-pipe',
+    error:err?redactFFmpeg(String(err.code||err.message||err)).slice(-120):'',
+    details:redactFFmpeg(stderr)
+   });
+  };
+  const args=[
+   '-nostdin','-hide_banner','-loglevel','info','-threads','2','-filter_threads','1',
+   '-i','pipe:0','-t','3','-vn','-sn','-dn',
+   '-ac','2','-ar','48000','-f','s16le','pipe:1'
+  ];
+  try{child=spawnProcess(ffmpegPath(),args,{stdio:['pipe','pipe','pipe'],windowsHide:true});}
+  catch(err){finish(null,null,err);return;}
+  child.stdin?.on('error',()=>{}); // FFmpeg may close stdin after 3s of decoded audio.
+  child.stdout?.on('data',chunk=>{bytes+=chunk.length;});
+  child.stderr?.on('data',chunk=>{stderr=(stderr+chunk.toString()).slice(-16000);});
+  child.once('error',err=>finish(null,null,err));
+  child.once('close',(code,signal)=>finish(code,signal,null));
+  timer=setTimeout(()=>{
+   timedOut=true;
+   try{child.kill('SIGKILL');}catch{}
+   // The process can be unkillable on a broken host: still return a diagnosis.
+   finish(null,'TIMEOUT',Error('Brak odpowiedzi FFmpeg.'));
+  },timeoutMs);
+  timer.unref?.();
+  Promise.resolve().then(()=>pipeAudio(url,child.stdin,{signal:controller.signal})).catch(err=>{
+   if(done||controller.signal.aborted)return;
+   try{child.kill('SIGKILL');}catch{}
+   finish(null,null,err);
+  });
+ });
 }
 function diagnoseLocalFFmpeg(options={}) {
  return probeFFmpeg([
@@ -112,7 +147,7 @@ function formatDiagnostic(name,stream,local=null,http=null){
  const safeName=String(name||'stacja').replace(/[@<>\x60\r\n]/g,' ').slice(0,70);
  let body='🔎 NeonBeats — diagnoza: '+safeName+
   '\n🌐 Test HTTP Node.js: '+(http?httpText(http):'nie uruchomiono')+
-  '\n📻 Strumień FFmpeg: '+probeText(stream)+
+  '\n📻 Strumień FFmpeg (Node.js → pipe:0): '+probeText(stream)+
   (local?'\n🧪 Test lokalny FFmpeg: '+probeText(local):'')+
   (stream.error?'\nBłąd procesu strumienia: '+stream.error:'')+
   (stream.details?'\n\nFFmpeg — strumień:\n'+stream.details:'\n\nFFmpeg — strumień: brak dodatkowego opisu.')+
