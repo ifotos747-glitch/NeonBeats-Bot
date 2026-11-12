@@ -1,9 +1,9 @@
 'use strict';
-const {Client,GatewayIntentBits,Events,EmbedBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags,PermissionFlagsBits}=require('discord.js');
+const {Client,GatewayIntentBits,Events,EmbedBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags,PermissionFlagsBits,StringSelectMenuBuilder}=require('discord.js');
 const {execFile}=require('node:child_process');
 const {ffmpegPath,BOT_NAME,VERSION}=require('./config');
 const {musicFiles,localFile,classifyInput}=require('./media');
-const store=require('./store'),{sessions,ensureSession}=require('./player');
+const store=require('./store'),radio=require('./global-radio'),{sessions,ensureSession}=require('./player');
 const {diagnoseStream,diagnoseLocalFFmpeg,diagnoseHttp,formatDiagnostic}=require('./diagnostics');
 const {normalizeYouTubeUrl,ytDlpPath,installYtDlp,ytDlpVersion,diagnoseYouTube}=require('./youtube');
 const {MAX_PLAYLIST_ITEMS,isYouTubePlaylistUrl,loadYoutubePlaylist}=require('./youtube-playlist');
@@ -27,6 +27,15 @@ function panel(){
  return {embeds:[embed('🎧 NEONBEATS • MUSIC CONTROL','Sterowanie muzyką, kolejką i głośnością.\nRadio 24/7 • AutoDJ • DJ FX')],components:[row1,row2]};
 }
 function requireAdmin(i){if(!i.memberPermissions?.has(PermissionFlagsBits.ManageGuild)&&i.guild?.ownerId!==i.user.id)throw Error('Wymagane uprawnienie Zarządzanie serwerem.');}
+function requireOwner(i){
+ if(!process.env.BOT_OWNER_ID||i.user.id!==process.env.BOT_OWNER_ID)
+  throw Error('Globalny katalog: wymagane konto właściciela BOT_OWNER_ID.');
+}
+function radioMenu(items){
+ return [new ActionRowBuilder().addComponents(new StringSelectMenuBuilder()
+  .setCustomId('neon:radio:select').setPlaceholder('📻 Wybierz stację')
+  .addOptions(items.slice(0,25).map(st=>({label:clean(st.name).slice(0,100),value:st.id}))))];
+}
 function voice(i){const m=i.guild?.members.cache.get(i.user.id)||i.member,v=m?.voice?.channel;
  if(!v?.isVoiceBased?.())throw Error('Najpierw dołącz do kanału głosowego.');return v;}
 function getSession(i){const s=sessions.get(i.guildId);if(!s)throw Error('Bot nie jest połączony.');
@@ -78,7 +87,7 @@ async function slash(i){
  const sub=['radio','autodj','247','dj','playlist','youtube'].includes(n)?i.options.getSubcommand():'';
  if(n==='neonhelp')return i.reply({embeds:[embed('🎧 NEONBEATS 1.0 — KOMENDY',
   '/play /queue /nowplaying /pause /resume /skip /stop /leave /volume /panel\n'+
-  '/radio add|remove|list|play|stop|diagnoza\n/youtube install|status|diagnoza|playlista\n/autodj on|off\n/247 on|off|status\n'+
+  '/radio szukaj|list|play|stop|ulubione|admin\n/youtube install|status|diagnoza|playlista\n/autodj on|off\n/247 on|off|status\n'+
   '/dj preset|off|status\n/playlist save|load|list|delete\n/status /files /testaudio')],...hidden});
  if(n==='panel')return i.reply(panel());
  if(n==='status'){
@@ -86,7 +95,7 @@ async function slash(i){
   return i.editReply({embeds:[embed('🧪 NEONBEATS • STATUS',
    'Wersja: '+VERSION+'\nNode: '+process.version+'\nFFmpeg: '+await ffVersion()+'\nVoice: '+
    (s?.connection.state.status||'brak')+'\nPlayer: '+(s?.player.state.status||'brak')+
-   '\nPliki: '+musicFiles().length+'\nStacje: '+d.radios.length+
+   '\nPliki: '+musicFiles().length+'\nStacje globalne: '+radio.list().length+
    '\n24/7: '+(d.alwaysOn?.mode||'wyłączony')+'\nDJ: '+d.dj+
    (s?.lastError?'\nOstatni błąd: '+clean(s.lastError):''))]});
  }
@@ -121,7 +130,7 @@ async function slash(i){
   }catch(e){return i.editReply({content:'❌ '+clean(e.message)});}
  }
  if(n==='play'||n==='testaudio'){
-  const x=n==='testaudio'?localFile('demo.wav'):classifyInput(i.options.getString('source',true),store.read(i.guildId).radios);
+  const x=n==='testaudio'?localFile('demo.wav'):classifyInput(i.options.getString('source',true),radio.list());
   if(x.kind==='spotify-link')return i.reply({content:'Spotify nie udostępnia bezpośredniego audio dla tego bota. Wybierz plik lub uprawniony strumień.',...hidden});
   if(x.kind==='youtube-link'&&isYouTubePlaylistUrl(x.source)){
    await i.deferReply(hidden);
@@ -152,21 +161,42 @@ async function slash(i){
   s.destroy();return i.reply({content:'👋 Rozłączono',...hidden});
  }
  if(n==='radio'){
-  const d=store.read(i.guildId),name=i.options.getString('nazwa');
+  const d=store.read(i.guildId),name=i.options.getString('nazwa'),all=radio.list();
+  if(i.options.getSubcommandGroup(false)==='admin'){
+   requireOwner(i);
+   if(sub==='dodaj'){const st=radio.add(name,i.options.getString('url',true));return i.reply({content:'✅ Dodano globalnie: '+clean(st.name),...hidden});}
+   if(sub==='edytuj'){const st=radio.edit(name,i.options.getString('nowa-nazwa'),i.options.getString('url'));return i.reply({content:'✅ Edytowano: '+clean(st.name),...hidden});}
+   if(sub==='usun'){radio.remove(name);return i.reply({content:'🗑️ Usunięto stację globalną.',...hidden});}
+  }
+  if(sub==='szukaj'){
+   const found=radio.search(name||'');
+   if(!found.length)return i.reply({content:'📻 Brak pasujących stacji.',...hidden});
+   return i.reply({content:'📻 Wybierz stację:',components:radioMenu(found),...hidden});
+  }
+  if(sub==='ulubione'){
+   const ids=new Set(radio.favorites(i.guildId)),items=all.filter(st=>ids.has(st.id));
+   return i.reply({content:items.length?'❤️ Ulubione stacje serwera:':'❤️ Brak ulubionych stacji.',...(items.length?{components:radioMenu(items)}:{}),...hidden});
+  }
+  if(sub==='ulubione-dodaj'||sub==='ulubione-usun'){
+   requireAdmin(i);
+   const st=radio.find(name);if(!st)throw Error('Nie znaleziono stacji globalnej.');
+   radio.favorite(i.guildId,st.id,sub==='ulubione-dodaj');
+   return i.reply({content:'❤️ Zaktualizowano ulubione: '+clean(st.name),...hidden});
+  }
   if(sub==='diagnoza'){
    requireAdmin(i);
-   const st=d.radios.find(r=>r.name.toLowerCase()===String(name||'').toLowerCase());
+   const st=radio.find(name);
    if(!st)throw Error('Nie znaleziono stacji.');
    await i.deferReply(hidden);
    const [report,local,http]=await Promise.all([diagnoseStream(st.url),diagnoseLocalFFmpeg(),diagnoseHttp(st.url)]);
    return i.editReply({content:formatDiagnostic(st.name,report,local,http),allowedMentions:{parse:[]}});
   }
-  if(sub==='list')return i.reply({content:'📻 Stacje:\n'+(d.radios.map(r=>clean(r.name)).join('\n')||'Brak stacji'),...hidden});
-  if(sub==='add'){requireAdmin(i);const st=store.addRadio(i.guildId,name,i.options.getString('url',true));
+  if(sub==='list')return i.reply({content:'📻 Katalog globalny: '+all.length+' stacji.',...(all.length?{components:radioMenu(all)}:{}),...hidden});
+  if(sub==='add'){requireOwner(i);const st=radio.add(name,i.options.getString('url',true));
    return i.reply({content:'✅ Dodano '+clean(st.name),...hidden});}
-  if(sub==='remove'){requireAdmin(i);store.removeRadio(i.guildId,name);return i.reply({content:'🗑️ Usunięto stację',...hidden});}
+  if(sub==='remove'){requireOwner(i);radio.remove(name);return i.reply({content:'🗑️ Usunięto stację',...hidden});}
   if(sub==='play'){
-   const st=d.radios.find(r=>r.name.toLowerCase()===String(name).toLowerCase());
+   const st=radio.find(name);
    if(!st)throw Error('Nie znaleziono stacji.');
    join(i).replace({kind:'radio',source:st.url,title:st.name,stationId:st.id});
    return i.reply({content:'📻 Odtwarzanie '+clean(st.name)});
@@ -193,7 +223,7 @@ async function slash(i){
   const mode=i.options.getString('tryb',true),v=voice(i);
   let stationId=null;
   if(mode==='radio'){
-   const st=d.radios.find(r=>r.name.toLowerCase()===String(i.options.getString('stacja')||'').toLowerCase());
+   const st=radio.find(i.options.getString('stacja'));
    if(!st)throw Error('Najpierw dodaj stację przez /radio add.');stationId=st.id;
   }
   if(mode==='autodj'&&!musicFiles().length)throw Error('Brak plików AutoDJ.');
@@ -241,11 +271,18 @@ async function restore247(){
 }
 client.once(Events.ClientReady,async()=>{
  console.log('✅ '+BOT_NAME+' online jako '+client.user.tag);
- await restore247();setInterval(()=>void restore247(),60_000).unref?.();
+ try{console.log('📻 Migracja stacji: '+radio.migrate());}catch(e){console.error('Migracja radia:',e.message);}await restore247();setInterval(()=>void restore247(),60_000).unref?.();
 });
 client.on(Events.InteractionCreate,async i=>{
- if(!i.inGuild()||(!i.isChatInputCommand()&&!i.isButton()))return;
- try{if(i.isButton()){if(i.customId.startsWith('neon:'))await button(i);}else await slash(i);}
+ if(!i.inGuild()||(!i.isChatInputCommand()&&!i.isButton()&&!i.isStringSelectMenu()))return;
+ try{
+  if(i.isStringSelectMenu()&&i.customId==='neon:radio:select'){
+   const st=radio.find(i.values[0]);if(!st)throw Error('Nie znaleziono stacji.');
+   join(i).replace({kind:'radio',source:st.url,title:st.name,stationId:st.id});
+   await i.update({content:'📻 Odtwarzanie: '+clean(st.name),components:[],allowedMentions:{parse:[]}});
+  }else if(i.isButton()){if(i.customId.startsWith('neon:'))await button(i);}
+  else await slash(i);
+ }
  catch(e){console.error('NeonBeats command:',e.message);
   const content='⚠️ '+clean(e.message||'Błąd');
   if(i.deferred||i.replied)await i.followUp({content,...hidden}).catch(()=>{});
