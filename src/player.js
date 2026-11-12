@@ -3,6 +3,7 @@ const fs=require('node:fs'),path=require('node:path');
 const {spawn}=require('node:child_process');
 const {randomInt}=require('node:crypto');
 const {pipeHttpAudio}=require('./network');
+const {RadioHealth}=require('./radio-health');
 const {bufferPcm,bufferLivePcm}=require('./audio-buffer');
 const {spawnYouTube,cleanYtdlpError,selectAudioProfile,isPyInstallerError}=require('./youtube');
 const {joinVoiceChannel,createAudioPlayer,createAudioResource,AudioPlayerStatus,VoiceConnectionStatus,NoSubscriberBehavior,StreamType,entersState}=require('@discordjs/voice');
@@ -40,7 +41,7 @@ class MusicSession{
   this.guildId=guild.id;this.channelId=voiceChannel.id;this.textChannel=textChannel;
   this.queue=[];this.current=null;this.volume=85;this.autodj=false;this.autodjIndex=0;
   this.alwaysOn=null;this.dj=store.read(guild.id).dj;
-  this.process=null;this.ytProcess=null;this.netAbort=null;this.radioBuffer=null;this.radioStats=null;this.timer=null;this.retry=null;this.startupTimer=null;this.watchdog=null;this.blockUntil=0;
+  this.process=null;this.ytProcess=null;this.netAbort=null;this.radioBuffer=null;this.radioStats=null;this.radioHealth=null;this.timer=null;this.retry=null;this.startupTimer=null;this.watchdog=null;this.blockUntil=0;
   this.lastError='';this.closed=false;this.starting=false;this.retryCount=0;
   this.panelFactory=null;this.panelMessage=null;this.panelChannelId=null;this.panelUpdate=null;this.panelDirty=false;this.panelLastEdit=0;
   this.repeatMode='off';this.skipRequested=false;this.playedCount=0;this.playingSince=0;
@@ -223,7 +224,8 @@ class MusicSession{
   const deadline=setTimeout(()=>controller.abort(),16000);
   deadline.unref?.();
   try{
-   await pipeHttpAudio(track.source,child.stdin,{signal:controller.signal,onConnected:()=>clearTimeout(deadline)});
+   await pipeHttpAudio(track.source,child.stdin,{signal:controller.signal,onConnected:()=>clearTimeout(deadline),
+    onChunk:size=>{if(!this.closed&&this.current===track&&this.process===child)this.radioHealth?.onChunk(size);}});
    // Some Icecast/Shoutcast servers end the HTTP stream with a successful EOF.
    // For live radio that is a disconnect, not a completed song.
    if(!controller.signal.aborted&&!this.closed&&this.current===track&&this.process===child)
@@ -263,6 +265,7 @@ class MusicSession{
   // Avoid FFmpeg's network reader (SIGSEGV on some hosts) for MP3/AAC-style radio.
   // Preserve native FFmpeg handling of HLS/playlist manifests.
   const viaYouTube=track.kind==='youtube-link';
+  const liveRadio=track.kind==='radio'||track.kind==='stream';
   const viaNode=track.kind!=='file'&&!viaYouTube&&!/\.(?:m3u8|m3u|pls)(?:$|[?#])/i.test(track.source);
   const input=track.kind==='file'?['-i',path.join(MUSIC,track.source)]
     :(viaNode||viaYouTube)?['-i','pipe:0']
@@ -270,12 +273,15 @@ class MusicSession{
   const premium=require('./premium');
   const allowedDJ=premium.PREMIUM_DJ.has(this.dj)&&!premium.status(this.guildId).active?'off':this.dj;
   const filter=filterFor(allowedDJ);
-  const args=['-nostdin','-hide_banner','-loglevel','error','-threads','2','-filter_threads','1',...input,'-vn','-sn','-dn',...(filter?['-af',filter]:[]),
+  const args=['-nostdin','-hide_banner','-loglevel',liveRadio?'warning':'error','-threads','2','-filter_threads','1',...input,'-vn','-sn','-dn',...(filter?['-af',filter]:[]),
     '-ac','2','-ar','48000','-f','s16le','pipe:1'];
   const child=spawn(ffmpegPath(),args,{stdio:[(viaNode||viaYouTube)?'pipe':'ignore','pipe','pipe'],windowsHide:true});
-  this.process=child;let bytes=0,stderr='',lastPcm=Date.now();
+  this.process=child;this.radioHealth=liveRadio?new RadioHealth():null;
+  let bytes=0,stderr='',lastPcm=Date.now();
   child.stdout.on('data',b=>{bytes+=b.length;lastPcm=Date.now();});
-  child.stderr.on('data',b=>{stderr=(stderr+b.toString()).slice(-1300);});
+  child.stderr.on('data',b=>{stderr=(stderr+b.toString()).slice(-1300);
+   if(this.process===child)this.radioHealth?.onFFmpegData(b);
+  });
   child.once('error',e=>{if(this.process===child)this.fail('FFmpeg: '+(e.code||e.message));});
   child.once('close',(code,signal)=>{
     if(this.closed||this.process!==child||child.killed)return;
@@ -285,7 +291,6 @@ class MusicSession{
   // Radio gets a larger initial cushion than YouTube, because a live stream
   // cannot request missing packets again. Both values remain configurable.
   const prebufferMs=audioBufferMs(track);
-  const liveRadio=track.kind==='radio'||track.kind==='stream';
   const buffered=track.kind!=='file'&&prebufferMs>0;
   const startVoice=()=>{
    if(!this.closed&&this.current===track&&this.process===child)this.player.play(this.resource);
