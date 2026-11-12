@@ -149,3 +149,13 @@ Premium przypisane do **serwera Discord**, a nie konta użytkownika. Istniejące
 Aktywacja i cofnięcie Premium z panelu Web Control wymaga uwierzytelnienia Discord OAuth oraz zgodności Discord User ID z **`BOT_OWNER_ID` na ALTARE**. Pole `BOT_OWNER_ID` musi zawierać prawdziwy identyfikator właściciela bota (15–24 cyfry); jego brak blokuje aktywacje. Administrator serwera bez tego uprawnienia nie może aktywować Premium. Właściciel może aktywować od 1 do 3650 dni; przedłużenie dolicza dni do bieżącego okresu. Nie ma integracji płatności, abonamentu ani kodów sprzedażowych — to system ręcznego przyznawania dostępu.
 
 Dane Premium przechowywane są w dotychczasowym `data/<guild_id>.json` na ALTARE. Pliki do aktualizacji ALTARE: `src/premium.js` (NOWY), `src/store.js`, `src/effects.js`, `src/web-control.js`, `src/player.js`, `index.js`, `package.json`. Cloudflare: `web-control/worker.js`, `website/dashboard.html`. **Nie trzeba zmieniać tabel D1**. Nie nadpisuj `.env`, `data/`, `music/`, `bin/`. Wymagany restart bota po aktualizacji.
+
+## 3.6 — PREMIUM ADMIN CENTER
+
+Panel Web Control zbiorczo wyświetla aktywacje i cofnięcia Premium na serwerach, do których należy bot. Dane pobiera się z ALTARE za pośrednictwem istniejącego kolejkującego mostu Cloudflare. Lista jest stronicowana (10 serwerów na stronę), uwzględnia nazwę i ID serwera, datę pierwszej aktywacji (dla wcześniejszych wersji przybliżoną do ostatniej zmiany), datę końca Premium, identyfikator nadającego oraz ostatnią zmianę. Nowe aktywacje i cofnięcia zapisują historię audytu (maks. 100 zdarzeń na serwer). Przycisk przedłużenia i cofnięcia wymaga potwierdzenia.
+
+**Bezpieczeństwo:** ALTARE sprawdza tożsamość Discord przez `BOT_OWNER_ID` dla `premium-list`, `premium-manage`, `premium-grant` i `premium-revoke`. Cloudflare przekazuje zweryfikowany `user_id` powiązany z sesją OAuth; nigdy nie bierze identyfikatora z wartości przesłanej przez przeglądarkę. Zbiorcza lista nie jest udostępniana zwykłym administratorom serwerów. System jest przypisany do serwera, nie do użytkownika Discord.
+
+Nowe komendy Discord: **`/premium status`** — stan Premium na bieżącym serwerze (dla członków serwera) lub po podaniu opcjonalnego `serwer-id` (tylko dla właściciela bota); **`/premium lista`** — właściciel bota widzi listę aktywacji i zbiorcze liczniki. Bot musi być członkiem serwera, by sprawdzić go po ID.
+
+Wdrożenie: ALTARE — `src/premium.js`, `src/store.js`, `src/web-control.js`, `src/bot.js`, `src/commands.js`, `package.json`, `index.js`, następnie restart i ponowna rejestracja komend (bot robi to przy starcie). Cloudflare — `web-control/worker.js`, `website/dashboard.html`. Zachowaj prywatne `.env`, `data/`, `music/`, `bin/`. Nie trzeba nowego SQL.
