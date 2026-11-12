@@ -2,7 +2,7 @@
 const fs=require('node:fs'),path=require('node:path');
 const {MUSIC}=require('./config');
 const EXT=new Set(['.mp3','.wav','.ogg','.opus','.flac','.m4a','.aac','.webm']);
-const YT=new Set(['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtu.be','www.youtu.be']);
+const YT=new Set(['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtu.be','www.youtu.be','youtube-nocookie.com','www.youtube-nocookie.com']);
 const SPOTIFY=new Set(['open.spotify.com']);
 function isPrivateHost(host){
  const h=String(host||'').toLowerCase().replace(/^\[|\]$/g,'');
