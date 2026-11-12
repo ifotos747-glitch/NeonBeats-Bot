@@ -4,12 +4,13 @@ const {DATA,SNOWFLAKE}=require('./config');
 const {validatePublicUrl,restoreTrack}=require('./media');
 const {PRESETS}=require('./effects');
 function location(id){if(!SNOWFLAKE.test(String(id)))throw Error('Niepoprawne ID serwera');return path.join(DATA,String(id)+'.json');}
-function fresh(){return{version:1,radios:[],playlists:{},dj:'off',alwaysOn:null};}
+function fresh(){return{version:1,radios:[],radioFavorites:[],playlists:{},dj:'off',alwaysOn:null};}
 function read(id){
  const file=location(id);if(!fs.existsSync(file))return fresh();
  let data;try{data=JSON.parse(fs.readFileSync(file,'utf8'));}catch{throw Error('Uszkodzony zapis serwera: '+path.basename(file));}
  const d=fresh();
  if(Array.isArray(data.radios))d.radios=data.radios.filter(x=>x&&typeof x.name==='string'&&typeof x.url==='string'&&typeof x.id==='string');
+ if(Array.isArray(data.radioFavorites))d.radioFavorites=data.radioFavorites.filter(x=>typeof x==='string').slice(0,50);
  if(data.playlists&&typeof data.playlists==='object'&&!Array.isArray(data.playlists))d.playlists=data.playlists;
  if(Object.hasOwn(PRESETS,data.dj))d.dj=data.dj;
  if(data.alwaysOn&&['radio','autodj','silent'].includes(data.alwaysOn.mode))d.alwaysOn=data.alwaysOn;

@@ -12,7 +12,7 @@ function envCheck() {
  const {DISCORD_TOKEN, CLIENT_ID, GUILD_ID}=process.env;
  if (!DISCORD_TOKEN || DISCORD_TOKEN.startsWith('WPISZ_')) throw Error('Ustaw prywatny DISCORD_TOKEN w .env.');
  if (!SNOWFLAKE.test(String(CLIENT_ID||''))) throw Error('Wprowadź prawidłowe CLIENT_ID.');
- if (!SNOWFLAKE.test(String(GUILD_ID||''))) throw Error('Wprowadź prawidłowe GUILD_ID.');
+ if (GUILD_ID && !SNOWFLAKE.test(String(GUILD_ID))) throw Error('Wprowadź prawidłowe GUILD_ID.');
 }
 function ffmpegPath(){
  if(process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH;
