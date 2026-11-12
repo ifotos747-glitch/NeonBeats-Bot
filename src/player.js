@@ -43,7 +43,7 @@ class MusicSession{
   this.guildId=guild.id;this.channelId=voiceChannel.id;this.textChannel=textChannel;
   this.queue=[];this.current=null;this.volume=85;this.autodj=false;this.autodjIndex=0;
   this.alwaysOn=null;this.dj=store.read(guild.id).dj;
-  this.process=null;this.ytProcess=null;this.netAbort=null;this.radioBuffer=null;this.radioStats=null;this.radioHealth=null;this.radioOpus=false;this.timer=null;this.retry=null;this.startupTimer=null;this.watchdog=null;this.blockUntil=0;
+  this.process=null;this.ytProcess=null;this.netAbort=null;this.radioBuffer=null;this.radioStats=null;this.radioHealth=null;this.radioOpus=false;this.nativeOpusFailed=false;this.timer=null;this.retry=null;this.startupTimer=null;this.watchdog=null;this.blockUntil=0;
   this.lastError='';this.closed=false;this.starting=false;this.retryCount=0;
   this.panelFactory=null;this.panelMessage=null;this.panelChannelId=null;this.panelUpdate=null;this.panelDirty=false;this.panelLastEdit=0;
   this.repeatMode='off';this.skipRequested=false;this.playedCount=0;this.playingSince=0;
@@ -182,6 +182,10 @@ class MusicSession{
  fail(message){
   if(this.closed)return;
   this.lastError=errorText(message);console.error('[NEON AUDIO '+this.guildId+'] '+this.lastError);
+  if(this.radioOpus&&!this.nativeOpusFailed&&/^(?:FFmpeg:|Discord Voice:|Dźwięk nie wystartował)/.test(String(message))){
+   this.nativeOpusFailed=true;
+   this.announce('⚠️ Eksperymentalna ścieżka Opus nie działa na tym hostingu — wracam do trybu PCM.');
+  }
   this.announce('⚠️ NeonBeats — błąd audio: '+this.lastError);
   const item=this.current;
   if(shouldRetryYouTube(item,message)){
@@ -278,7 +282,7 @@ class MusicSession{
   // Preserve native FFmpeg handling of HLS/playlist manifests.
   const viaYouTube=track.kind==='youtube-link';
   const liveRadio=track.kind==='radio'||track.kind==='stream';
-  const opusRadio=liveRadio&&radioCodec()==='opus';
+  const opusRadio=liveRadio&&radioCodec()==='opus'&&!this.nativeOpusFailed;
   this.radioOpus=opusRadio;
   const viaNode=track.kind!=='file'&&!viaYouTube&&!/\.(?:m3u8|m3u|pls)(?:$|[?#])/i.test(track.source);
   const input=track.kind==='file'?['-i',path.join(MUSIC,track.source)]
