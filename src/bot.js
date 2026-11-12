@@ -136,7 +136,7 @@ async function slash(i){
  }
  if(n==='panel'){const session=sessions.get(i.guildId);return i.reply(panel(session?.current||null,session));}
  if(n==='status'){
-  await i.deferReply(hidden);const s=sessions.get(i.guildId),d=store.read(i.guildId);
+  await i.deferReply(hidden);const s=sessions.get(i.guildId),d=store.read(i.guildId),health=s?.radioHealth?.snapshot();
   return i.editReply({embeds:[embed('🧪 NEONBEATS • STATUS',
    'Wersja: '+VERSION+'\nNode: '+process.version+'\nFFmpeg: '+await ffVersion()+'\nVoice: '+
    (s?.connection.state.status||'brak')+'\nPlayer: '+(s?.player.state.status||'brak')+
@@ -146,6 +146,10 @@ async function slash(i){
    '\nTolerancja krótkich przerw: '+MAX_MISSED_FRAMES*20+' ms'+
    (s?.radioStats?'\n📻 Radio live: bufor '+s.radioStats.bufferedMs+' ms (maks. '+s.radioStats.peakBufferedMs+' ms)'+
     '\n📉 Odczyty bez PCM: '+s.radioStats.underruns+' | min. ciszy przy niedoborze: '+s.radioStats.silenceMs+' ms':'')+
+   (health?'\n📡 MP3 HTTP: '+health.httpBytes+' B | porcje: '+health.httpChunks+
+    '\nPrzerwy odczytu >0,5s: '+health.readGaps500+' | >2s: '+health.readGaps2000+' | najdłuższa: '+health.maxReadGapMs+' ms'+
+    '\nFFmpeg ostrzeżenia audio: '+health.decoderWarnings+
+    (health.lastDecoderWarning?'\nOstatnie FFmpeg: '+clean(health.lastDecoderWarning):''):'')+
    '\n'+performanceText(performanceSnapshot(s))+
    (s?.lastError?'\nOstatni błąd: '+clean(s.lastError):''))]});
  }
