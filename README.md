@@ -182,3 +182,23 @@ W `/status` podczas radia pojawiają się dodatkowe linie:
 Liczniki zerują się z nowym utworem/stacją, więc porównuj wyniki w obrębie jednej nieprzerwanej sesji. Zbyt długie przerwy mogą również odpowiadać pauzie, przełączeniu lub obciążeniu Node.js, a niekoniecznie usterce sieci. Najpierw odczekaj 5 minut słuchając Radio Club Dj albo ESKA. Następnie, zaraz po słyszalnym zakłóceniu, wykonaj `/status` i porównaj wartości. Jeśli `bez ramki` lub `nieudane` rośnie dokładnie w tym momencie, wiemy, który etap trzeba poprawić. Jeśli wyniki są zerowe, kolejny kontrolowany test powinien porównać region kanału Discord i trasę ALTARE → Discord Voice. Nie zwiększaj kolejny raz bufora.
 
 Aktualizacja ALTARE z 3.7.7: podmień `src/player.js`, `src/bot.js`, dodaj `src/voice-health.js`, podmień `package.json` i `index.js`; zachowaj własne `.env`, `data/`, `music/`, `bin/`. Pozostaw `NEONBEATS_RADIO_CODEC=opus` oraz `NEONBEATS_RADIO_PREBUFFER_MS=2000`. Brak zmian SQL/Cloudflare i nowych pakietów npm.
+
+## NeonBeats 3.7.9 — ROBUST OPUS TEST
+
+Oba radia na ALTARE wciąż miały bardzo drobne zakłócenia mimo pełnego bufora 5 sekund, bez niedoborów Opus/PCM, płynnego rytmu 20 ms, braku błędów FFmpeg i ponad 19 tysięcy kolejnych pomyślnych lokalnych prób wysłania pakietu. Zmiana regionów kanału Discord również nie pomogła. To sugeruje, choć nie potwierdza, problem na **odcinku UDP poza lokalnym odtwarzaczem**. Wyniki `/status` nie dowodzą, że pakiet dotarł do słuchacza. Nie mamy dostępu do rzeczywistych statystyk strat UDP Discorda.
+
+Dodano **odwracalny profil transmisji** dla NATIVE OPUS:
+
+- `NEONBEATS_RADIO_OPUS_PROFILE=standard` **(domyślny, bez zmian)**: FFmpeg libopus, 128 kb/s VBR, 20 ms na ramkę.
+- `NEONBEATS_RADIO_OPUS_PROFILE=robust`: 96 kb/s, constrained VBR (ogranicza skoki rozmiaru pakietów), `-packet_loss 10`, `-fec 1`. Parametr packet_loss to **oczekiwany** poziom straty dla encodera, nie pomiar rzeczywistego połączenia. FEC to dodatkowe dane naprawcze w Opus, ale *nie ma gwarancji*, że Discord lub każdy klient je wykorzysta. Nie naprawia to wszystkich przyczyn zacinania.
+- Profil dotyczy tylko `NEONBEATS_RADIO_CODEC=opus` dla stacji internetowych; nie zmienia `PCM`, AutoDJ, plików ani YouTube. Pokazuje się w `/status` jako `Profil Opus: ROBUST 96 kb/s` albo `STANDARD 128 kb/s`.
+
+Aby przetestować na ALTARE: zaktualizuj `src/player.js`, `src/bot.js`, **nowy** `src/opus-profile.js`, `package.json`, `index.js`; zachowaj swój `.env`, `data/`, `music/`, `bin/`. Do `.env` dodaj:
+
+```dotenv
+NEONBEATS_RADIO_CODEC=opus
+NEONBEATS_RADIO_OPUS_PROFILE=robust
+NEONBEATS_RADIO_PREBUFFER_MS=2000
+```
+
+Zrestartuj bota, sprawdź `/status` (profil ROBUST), porównaj dłuższy odsłuch ESKA i Radio Club Dj z poprzednim profilem, **bez zmiany regionu kanału**. Żeby cofnąć test bez wracania do starej wersji, ustaw `NEONBEATS_RADIO_OPUS_PROFILE=standard` i zrestartuj bota. Jeśli profil nie pomaga, dalsze korekty kodeka bez twardych dowodów są nieuzasadnione. Następny istotny test to przeniesienie **tej samej wersji bota** na inny hosting / region sieciowy (przy zachowaniu tokena i uruchomieniu tylko jednej kopii), aby izolować trasę ALTARE → Discord Voice. Nie gwarantujemy usunięcia zakłóceń bez tego testu.
