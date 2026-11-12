@@ -64,6 +64,10 @@ const commands=[
        {name:'Echo',value:'echo'},{name:'Club',value:'club'})))
    .addSubcommand(s=>s.setName('off').setDescription('Wyłącz DJ'))
    .addSubcommand(s=>s.setName('status').setDescription('Aktualny DJ')),
+ new SlashCommandBuilder().setName('premium').setDescription('Sprawdź status NeonBeats Premium')
+   .addSubcommand(c=>c.setName('status').setDescription('Sprawdź Premium na tym lub innym serwerze')
+     .addStringOption(o=>o.setName('serwer-id').setDescription('Opcjonalnie ID innego serwera (tylko właściciel bota)')))
+   .addSubcommand(c=>c.setName('lista').setDescription('Właściciel bota: pokaż wszystkie aktywacje Premium')),
  new SlashCommandBuilder().setName('playlist').setDescription('Zapisane playlisty')
    .addSubcommand(s=>s.setName('save').setDescription('Zapisz kolejkę').addStringOption(named))
    .addSubcommand(s=>s.setName('load').setDescription('Wczytaj playlistę').addStringOption(named))
