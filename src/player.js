@@ -4,6 +4,7 @@ const {spawn}=require('node:child_process');
 const {randomInt}=require('node:crypto');
 const {pipeHttpAudio}=require('./network');
 const {RadioHealth}=require('./radio-health');
+const {VoiceHealth}=require('./voice-health');
 const {bufferPcm,bufferLivePcm}=require('./audio-buffer');
 const {bufferOpusRadio}=require('./opus-buffer');
 const {spawnYouTube,cleanYtdlpError,selectAudioProfile,isPyInstallerError}=require('./youtube');
@@ -49,7 +50,12 @@ class MusicSession{
   this.repeatMode='off';this.skipRequested=false;this.playedCount=0;this.playingSince=0;
   this.connection=joinVoiceChannel({channelId:voiceChannel.id,guildId:guild.id,adapterCreator:guild.voiceAdapterCreator,selfDeaf:true,selfMute:false});
   this.player=createAudioPlayer({behaviors:{noSubscriber:NoSubscriberBehavior.Pause,maxMissedFrames:MAX_MISSED_FRAMES}});
+  this.voiceHealth=new VoiceHealth({getStatus:()=>this.player?.state?.status});
+  this.voiceHealth.attachConnection(this.connection);
   this.connection.subscribe(this.player);
+  this.player.on('stateChange',(_oldState,newState)=>{
+   if(newState.status!==AudioPlayerStatus.Playing)this.voiceHealth.clearTiming();
+  });
   this.player.on(AudioPlayerStatus.Idle,()=>this.onIdle());
   this.player.on(AudioPlayerStatus.Playing,()=>{
    clearTimeout(this.startupTimer);this.startupTimer=null;this.playingSince=Date.now();
@@ -94,6 +100,7 @@ class MusicSession{
  clearTimer(){clearTimeout(this.timer);this.timer=null;}
  setRetry(ms){clearTimeout(this.retry);this.retry=setTimeout(()=>{this.retry=null;void this.startNext();},ms);this.retry.unref?.();}
  cleanProcess(){clearTimeout(this.startupTimer);this.startupTimer=null;
+   this.voiceHealth?.detachResource();this.voiceHealth?.reset(false);
    if(this.radioBuffer){this.radioBuffer.stop();this.radioBuffer=null;}
    clearInterval(this.watchdog);this.watchdog=null;
    if(this.netAbort){this.netAbort.abort();this.netAbort=null;}
@@ -282,6 +289,7 @@ class MusicSession{
   // Preserve native FFmpeg handling of HLS/playlist manifests.
   const viaYouTube=track.kind==='youtube-link';
   const liveRadio=track.kind==='radio'||track.kind==='stream';
+  this.voiceHealth?.reset(liveRadio);
   const opusRadio=liveRadio&&radioCodec()==='opus'&&!this.nativeOpusFailed;
   this.radioOpus=opusRadio;
   const viaNode=track.kind!=='file'&&!viaYouTube&&!/\.(?:m3u8|m3u|pls)(?:$|[?#])/i.test(track.source);
@@ -341,6 +349,7 @@ class MusicSession{
    inlineVolume:!opusRadio,metadata:track
   });
   if(this.resource.volume)this.resource.volume.setVolume(this.volume/100);
+  if(liveRadio)this.voiceHealth?.attachResource(this.resource);
   if(!liveRadio&&!buffered)this.player.play(this.resource);
   // Recover from a stuck network/YouTube stream, not from ordinary pauses.
   if(track.kind!=='file'){
@@ -363,7 +372,7 @@ class MusicSession{
 
  }
  destroy(){if(this.closed)return;this.closed=true;this.clearTimer();clearTimeout(this.retry);this.cleanProcess();
-   this.queue=[];this.player.stop(true);this.connection.destroy();sessions.delete(this.guildId);}
+   this.queue=[];this.voiceHealth?.close();this.player.stop(true);this.connection.destroy();sessions.delete(this.guildId);}
 }
 function ensureSession(guild,voiceChannel,textChannel){
  let s=sessions.get(guild.id);if(s?.closed){sessions.delete(guild.id);s=null;}
