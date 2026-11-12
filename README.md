@@ -167,3 +167,18 @@ W 3.7.6 dwa internetowe radia (Radio Club Dj i ESKA) wciąż sporadycznie zakł�
 W `/status` zobaczysz `Tryb radia: OPUS NATYWNY`, dokładny `Radio live: bufor N ms`, liczniki `Opus: pakiety otrzymane ... | podane do Voice ... | opróżnienia bufora ...`. Nie używamy już mało dokładnego oszacowania na podstawie bajtów Ogg. **Uwaga:** zerowy licznik opróżnień nie wyklucza trzasków powstających dalej w ścieżce Discord Voice ani przy samym źródle audio.
 
 **ALTARE:** zaktualizuj `src/opus-buffer.js`, `src/player.js`, `src/bot.js`, `package.json` i `index.js`; zachowaj swoje `.env`, `data/`, `music/`, `bin/`. W `.env` pozostaw `NEONBEATS_RADIO_CODEC=opus` i dotychczasowy `NEONBEATS_RADIO_PREBUFFER_MS=2000`. Po restarcie i uruchomieniu radia przetestuj ESKA oraz Radio Club Dj 10–15 minut; prześlij `/status` po rzeczywistym zakłóceniu. W razie pogorszenia wróć do `NEONBEATS_RADIO_CODEC=pcm` i zrestartuj bota.
+
+## NeonBeats 3.7.8 — VOICE TRANSMISSION TRACE
+
+Radio Club Dj i ESKA miały sporadyczne, bardzo drobne zakłócenia nawet po 3.7.7. Raporty pokazały ok. 5 s bufora rzeczywistych ramek Opus, 0 opróżnień, brak błędów FFmpeg oraz małe opóźnienia Node.js. Nowa aktualizacja **nie zmienia toru audio ani jego buforowania**, tylko dodaje pomiary na granicy odtwarzacza i lokalnej transmisji Discord Voice.
+
+Nowy `src/voice-health.js` dla radia rejestruje każdy `AudioResource.read()`, w tym każdą pojedynczą próbę bez ramki (wcześniejsze `missedFrames` było licznikiem *kolejnych* nieudanych odczytów, który resetuje się przy udanym odczycie), liczbę serii takich odczytów, maksymalną długość serii i przerwy ponad 50/100 ms między wywołaniami odczytu. Monitoruje też wynik `VoiceConnection.dispatchAudio()` oraz odstępy między wywołaniami. Metody wywoływane są normalnie, a ich wynik pozostaje niezmieniony. **`dispatchAudio() === true` oznacza tylko pomyślne lokalne przekazanie pakietu do stosu sieciowego, nie potwierdza odbioru na Discordzie**, nie mierzy utraty pakietów UDP na drodze do użytkowników. UDP ping może nadal pozostawać niedostępny. Brak liczników błędów nie wyklucza zakłóceń Discord/odbiorców.
+
+W `/status` podczas radia pojawiają się dodatkowe linie:
+- `Voice: odczyty N | bez ramki N (serie N, maks. N)`
+- `Rytm odczytu: przerwy >50ms ... | >100ms ... | maks. ...ms`
+- `Wysyłanie lokalne: OK ... | nieudane ... | bez potwierdzenia ... | przerwy >50ms ... | maks. ...ms`
+
+Liczniki zerują się z nowym utworem/stacją, więc porównuj wyniki w obrębie jednej nieprzerwanej sesji. Zbyt długie przerwy mogą również odpowiadać pauzie, przełączeniu lub obciążeniu Node.js, a niekoniecznie usterce sieci. Najpierw odczekaj 5 minut słuchając Radio Club Dj albo ESKA. Następnie, zaraz po słyszalnym zakłóceniu, wykonaj `/status` i porównaj wartości. Jeśli `bez ramki` lub `nieudane` rośnie dokładnie w tym momencie, wiemy, który etap trzeba poprawić. Jeśli wyniki są zerowe, kolejny kontrolowany test powinien porównać region kanału Discord i trasę ALTARE → Discord Voice. Nie zwiększaj kolejny raz bufora.
+
+Aktualizacja ALTARE z 3.7.7: podmień `src/player.js`, `src/bot.js`, dodaj `src/voice-health.js`, podmień `package.json` i `index.js`; zachowaj własne `.env`, `data/`, `music/`, `bin/`. Pozostaw `NEONBEATS_RADIO_CODEC=opus` oraz `NEONBEATS_RADIO_PREBUFFER_MS=2000`. Brak zmian SQL/Cloudflare i nowych pakietów npm.
