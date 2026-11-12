@@ -2,7 +2,6 @@
 const fs=require('node:fs'),path=require('node:path');
 const {spawn}=require('node:child_process');
 const {pipeHttpAudio}=require('./network');
-const {bufferPcm}=require('./audio-buffer');
 const {spawnYouTube,cleanYtdlpError,selectAudioProfile}=require('./youtube');
 const {joinVoiceChannel,createAudioPlayer,createAudioResource,AudioPlayerStatus,VoiceConnectionStatus,NoSubscriberBehavior,StreamType,entersState}=require('@discordjs/voice');
 const {MUSIC,ffmpegPath,IDLE_MINUTES}=require('./config');
@@ -180,14 +179,12 @@ class MusicSession{
     if(code!==0||bytes===0)this.fail('FFmpeg: '+(errorText(stderr)||('brak danych audio (kod: '+(code===null?'brak':code)+', sygnał: '+(signal||'brak')+', bajty: '+bytes+')')));
     else this.retryCount=0;
   });
-  // Keep ~1.8 seconds of decoded PCM before starting Discord Voice.
-  // This cushions brief yt-dlp/network hiccups without loading the whole track.
-  const pcm=bufferPcm(child.stdout,()=>{
-   if(!this.closed&&this.process===child&&this.current===track)
-    this.player.play(this.resource);
-  },{milliseconds:viaYouTube?1800:400});
-  this.resource=createAudioResource(pcm,{inputType:StreamType.Raw,inlineVolume:true,metadata:track});
+  // Start Discord Voice immediately. Waiting for a PCM prebuffer introduced a
+  // startup regression on some slow/limited hosts (including yt-dlp on ALTARE).
+  // @discordjs/voice consumes decoded PCM with normal stream backpressure.
+  this.resource=createAudioResource(child.stdout,{inputType:StreamType.Raw,inlineVolume:true,metadata:track});
   this.resource.volume.setVolume(this.volume/100);
+  this.player.play(this.resource);
   if(viaNode)void this.feedNetwork(track,child);
   if(viaYouTube)this.feedYouTube(track,child);
   this.announce('🎶 NeonBeats teraz gra: '+clean(track.title)+' · DJ: '+this.dj);
