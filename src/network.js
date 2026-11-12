@@ -1,5 +1,5 @@
 'use strict';
-const {Readable}=require('node:stream');
+const {Readable,Transform}=require('node:stream');
 const {pipeline}=require('node:stream/promises');
 const {validatePublicUrl}=require('./media');
 
@@ -36,9 +36,19 @@ async function openAudioResponse(rawUrl,{fetchImpl=fetch,signal,maxRedirects=5}=
  throw Error('Zbyt wiele przekierowań HTTP');
 }
 
-async function pipeHttpAudio(url,destination,{signal,fetchImpl=fetch,onConnected}={}){
+async function pipeHttpAudio(url,destination,{signal,fetchImpl=fetch,onConnected,onChunk}={}){
  const {response}=await openAudioResponse(url,{signal,fetchImpl});
  if(onConnected)onConnected();
- await pipeline(Readable.fromWeb(response.body),destination,{signal});
+ const source=Readable.fromWeb(response.body);
+ if(typeof onChunk==='function'){
+  // Observe bytes without moving the stream into flowing mode early.
+  const meter=new Transform({transform(chunk,_encoding,callback){
+   try{onChunk(chunk.length);}catch{/* Diagnostics must not interrupt music. */}
+   callback(null,chunk);
+  }});
+  await pipeline(source,meter,destination,{signal});
+ }else{
+  await pipeline(source,destination,{signal});
+ }
 }
 module.exports={openAudioResponse,pipeHttpAudio};
