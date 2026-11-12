@@ -28,6 +28,23 @@ function revoke(guildId,actorId,at=Date.now()){
  d.premium={expiresAt:0,updatedBy:actorId,updatedAt:at};
  store.write(guildId,d);return status(guildId,at);
 }
+function list(guilds,page=0,at=Date.now()){
+ if(!Number.isInteger(page)||page<0||page>10000)throw Error('Nieprawidłowa strona listy Premium.');
+ if(!Array.isArray(guilds))throw Error('Brak listy serwerów.');
+ const items=guilds.filter(g=>/^[0-9]{15,24}$/.test(String(g.id||''))).map(g=>{
+  const entry=store.read(g.id).premium;
+  if(!entry||!Number.isFinite(entry.updatedAt)||entry.updatedAt<=0)return null;
+  const state=status(g.id,at);
+  return {id:g.id,name:String(g.name||g.id).slice(0,85),active:state.active,
+   expiresAt:state.expiresAt,daysLeft:state.daysLeft,
+   updatedAt:entry.updatedAt,updatedBy:entry.updatedBy||null,
+   revoked:entry.expiresAt===0};
+ }).filter(Boolean).sort((a,b)=>b.updatedAt-a.updatedAt);
+ const pageSize=10,total=items.length,pages=Math.max(1,Math.ceil(total/pageSize));
+ return {page,pages,total,active:items.filter(x=>x.active).length,
+  expired:items.filter(x=>!x.active).length,
+  items:items.slice(page*pageSize,(page+1)*pageSize)};
+}
 function requirePremium(guildId){
  if(!status(guildId).active)throw Error('Ta funkcja wymaga aktywnego NeonBeats Premium na serwerze.');
 }
@@ -35,4 +52,4 @@ function requireOwner(userId){
  const id=String(process.env.BOT_OWNER_ID||'');
  if(!/^[0-9]{15,24}$/.test(id)||String(userId)!==id)throw Error('Tylko właściciel NeonBeats (BOT_OWNER_ID) może zarządzać Premium.');
 }
-module.exports={status,grant,revoke,requirePremium,requireOwner,PREMIUM_DJ};
+module.exports={status,grant,revoke,list,requirePremium,requireOwner,PREMIUM_DJ};
