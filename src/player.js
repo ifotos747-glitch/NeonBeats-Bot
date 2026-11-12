@@ -7,6 +7,10 @@ const {joinVoiceChannel,createAudioPlayer,createAudioResource,AudioPlayerStatus,
 const {MUSIC,ffmpegPath,IDLE_MINUTES}=require('./config');
 const {musicFiles}=require('./media'),{filterFor}=require('./effects'),store=require('./store'),radio=require('./global-radio');
 const sessions=new Map(),MAX_QUEUE=100;
+function shouldRetryYouTube(track,message){
+ if(track?.kind!=='youtube-link'||(track.compatRetries||0)>=2)return false;
+ return !/(?:sign in|log ?in|not a bot|cookie|private|deleted|copyright|drm|not available|unavailable|403|404|members.only|age.restricted|unsupported url)/i.test(String(message||''));
+}
 function clean(s){return String(s||'Utwór').replace(/[\r\n\t*_<>@]/g,' ').slice(0,100);}
 function errorText(s){return String(s||'').replace(/https?:\/\/[^\s]+/gi,'[URL]').replace(/[\r\n]+/g,' ').slice(-200);}
 class MusicSession{
@@ -79,7 +83,15 @@ class MusicSession{
  fail(message){
   if(this.closed)return;
   this.lastError=errorText(message);console.error('[NEON AUDIO '+this.guildId+'] '+this.lastError);
-  this.announce('⚠️ NeonBeats — błąd audio: '+this.lastError);this.cleanProcess();
+  this.announce('⚠️ NeonBeats — błąd audio: '+this.lastError);
+  const item=this.current;
+  if(shouldRetryYouTube(item,message)){
+   const attempt=(item.compatRetries||0)+1;
+   this.queue.push({...item,compatRetries:attempt});
+   this.announce('🔄 Ponawiam próbę YouTube '+attempt+'/2: '+clean(item.title));
+   if(this.queue.length===1)this.blockUntil=Date.now()+attempt*2000;
+  }
+  this.cleanProcess();
   this.retryCount=Math.min(6,this.retryCount+1);
   const delay=Math.min(60_000,3000*2**Math.min(4,this.retryCount));
   if(this.current?.continuous)this.blockUntil=Date.now()+delay;
@@ -90,7 +102,7 @@ class MusicSession{
   this.starting=true;
   try{
    this.clearTimer();clearTimeout(this.retry);this.retry=null;
-   if(!this.queue.length&&this.blockUntil&&Date.now()<this.blockUntil){this.setRetry(this.blockUntil-Date.now());return;}
+   if(this.blockUntil&&Date.now()<this.blockUntil){this.setRetry(this.blockUntil-Date.now());return;}
    const item=this.chooseNext();
    if(!item){
     if(this.alwaysOn?.mode==='autodj'||this.autodj){this.setRetry(30_000);return;}
@@ -190,4 +202,4 @@ function ensureSession(guild,voiceChannel,textChannel){
  if(!s){s=new MusicSession(guild,voiceChannel,textChannel);sessions.set(guild.id,s);}
  s.textChannel=textChannel;return s;
 }
-module.exports={MusicSession,sessions,ensureSession,clean,MAX_QUEUE};
+module.exports={MusicSession,sessions,ensureSession,clean,MAX_QUEUE,shouldRetryYouTube};
