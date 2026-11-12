@@ -8,7 +8,7 @@ const {loadYoutubePlaylist,isYouTubePlaylistUrl,validateRange}=require('./youtub
 const radio=require('./global-radio'),store=require('./store');
 const {sessions}=require('./player');
 
-const VALID_ACTIONS=new Set(['pause','resume','skip','stop','shuffle','repeat','volume','play','playlist','radio','dj','clear','search','save-list','load-list','delete-list']);
+const VALID_ACTIONS=new Set(['pause','resume','skip','stop','shuffle','repeat','volume','play','playlist','radio','dj','clear','search','save-list','load-list','delete-list','queue-move','queue-remove','favorite-add','favorite-remove']);
 const lastCurrent=new Map();
 async function searchMusic(query){
  if(typeof query!=='string'||query.trim().length<2||query.length>80)throw Error('Wyszukiwanie: wpisz 2–80 znaków.');
@@ -34,8 +34,11 @@ function safeSnapshot(client){
   const saved=store.read(guild.id);
   return{id:guild.id,connected:!!s&&!s.closed,channelId:s?.channelId||null,
    nowSource:current?.kind==='youtube-link'?current.source:null,
+   queueTracks:s?.queue?.slice(0,100).map(t=>({title:String(t.title||'').slice(0,140),source:t.kind==='youtube-link'?String(t.source||''):null}))||[],
    history:saved.history.slice(0,30),
    savedPlaylists:Object.entries(saved.playlists).slice(0,25).map(([name,tracks])=>({name,count:Array.isArray(tracks)?tracks.length:0})),
+   favorites:saved.favorites.slice(0,100),stats:saved.stats,
+   queueTotal:s?.queue?.length||0,
    nowPlaying:s?.current?.title||'',queue:s?.queue?.slice(0,15).map(x=>x.title)||[],
    volume:s?.volume??85,repeat:s?.repeatMode||'off',dj:s?.dj||'off',
    playerStatus:s?.player?.state?.status||'idle'};
@@ -48,6 +51,24 @@ async function perform(client,cmd){
  if(!s||s.closed)throw Error('Bot nie jest połączony z kanałem głosowym. Uruchom muzykę w Discordzie.');
  const value=cmd.value===null?null:JSON.parse(cmd.value);
  switch(cmd.action){
+  case 'queue-move':{
+   if(!value||!Number.isInteger(value.from)||!Number.isInteger(value.to)||value.from<0||value.to<0||value.from>=s.queue.length||value.to>=s.queue.length)throw Error('Nieprawidłowe pozycje kolejki.');
+   if(value.from===value.to)return 'Pozycja bez zmian.';
+   const [track]=s.queue.splice(value.from,1);s.queue.splice(value.to,0,track);void s.showControlPanel(s.current);
+   return 'Przeniesiono utwór na pozycję '+(value.to+1)+'.';
+  }
+  case 'queue-remove':{
+   if(!Number.isInteger(value)||value<0||value>=s.queue.length)throw Error('Nieprawidłowa pozycja w kolejce.');
+   const [track]=s.queue.splice(value,1);void s.showControlPanel(s.current);
+   return 'Usunięto z kolejki: '+track.title;
+  }
+  case 'favorite-add':{
+   if(typeof value!=='string')throw Error('Nieprawidłowy link.');
+   const track=[s.current,...s.queue,...store.read(cmd.guild_id).history].find(x=>x?.source===value&&x.kind==='youtube-link');
+   if(!track)throw Error('Można dodać tylko utwór YouTube z odtwarzania, kolejki lub historii.');
+   const saved=store.addFavorite(cmd.guild_id,track.source,track.title);return saved?'Dodano do ulubionych.':'Utwór jest już w ulubionych.';
+  }
+  case 'favorite-remove':store.removeFavorite(cmd.guild_id,value);return 'Usunięto z ulubionych.';
   case 'search':return searchMusic(value);
   case 'save-list':{
    if(typeof value!=='string'||value.trim().length<1||value.length>40)throw Error('Nazwa playlisty: 1–40 znaków.');
