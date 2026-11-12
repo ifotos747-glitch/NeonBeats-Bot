@@ -62,6 +62,7 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
 <div class="row spaced"><select class="input" id="dj"><option value="off">Wyłączone</option><option value="bass">Bass Boost</option><option value="nightcore">Nightcore</option><option value="slowed">Slowed</option><option value="8d">8D</option><option value="echo">Echo</option><option value="club">Club</option></select><button id="saveDJ">Zastosuj</button></div>
 </section>
 <section class="panel"><h2>➕ Dodaj utwór YouTube</h2><label class="label" for="youtubeUrl">Publiczny link do filmu</label><div class="row"><input class="input" id="youtubeUrl" type="url" maxlength="500" placeholder="https://www.youtube.com/watch?v=…"><button class="primary" id="addVideo">Dodaj</button></div><p class="muted">NeonBeats pobiera dźwięk na ALTARE; strona nie pobiera ani nie hostuje plików.</p></section>
+<section class="panel"><h2>🎶 Playlisty YouTube i YouTube Music</h2><label class="label" for="playlistUrl">Link do publicznej playlisty</label><input class="input" id="playlistUrl" type="url" maxlength="500" placeholder="https://www.youtube.com/playlist?list=…"><div class="row spaced"><div style="flex:1;min-width:120px"><label class="label" for="playlistStart">Od utworu nr</label><input class="input" id="playlistStart" type="number" min="1" max="10000" value="1"></div><div style="flex:1;min-width:120px"><label class="label" for="playlistLimit">Ile utworów (maks. 100)</label><input class="input" id="playlistLimit" type="number" min="1" max="100" value="100"></div></div><div class="ctrl"><button class="primary" id="addPlaylist">➕ Dodaj playlistę do kolejki</button></div><p id="playlistResult" class="muted" role="status" aria-live="polite">Obecny utwór nie zostanie przerwany. Dostępność zależy od YouTube i yt-dlp na ALTARE.</p></section>
 <section class="panel"><h2>📻 Globalne radio</h2><label class="label" for="radioName">Dokładna nazwa stacji z katalogu NeonBeats</label><div class="row"><input class="input" id="radioName" maxlength="100" placeholder="Nazwa stacji"><button id="playRadio">Włącz</button></div></section>
 </div>
 </div>
@@ -86,14 +87,14 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
   try{
    const data=await api('/api/guild/'+selected+'/control',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action,...(value===undefined?{}:{value})})});
    message('Wysłano polecenie do NeonBeats. Oczekiwanie na odpowiedź…');
-   for(let i=0;i<8;i++){
+   for(let i=0;i<(action==='playlist'?85:8);i++){
     await new Promise(r=>setTimeout(r,1600));
     const cmd=await api('/api/command/'+data.id);
-    if(cmd.status==='done'){message('✅ '+(cmd.result||'Wykonano.'));await refresh();return;}
-    if(cmd.status==='failed'){message('⚠️ '+(cmd.result||'Nie udało się wykonać polecenia.'),true);await refresh();return;}
+    if(cmd.status==='done'){message('✅ '+(cmd.result||'Wykonano.'));if(action==='playlist')$('playlistResult').textContent=cmd.result||'Playlista dodana.';await refresh();return;}
+    if(cmd.status==='failed'){message('⚠️ '+(cmd.result||'Nie udało się wykonać polecenia.'),true);if(action==='playlist')$('playlistResult').textContent='⚠️ '+(cmd.result||'Nie udało się odczytać playlisty.');await refresh();return;}
    }
    message('Polecenie w kolejce. Odśwież panel za chwilę.');
-  }catch(e){message('⚠️ '+e.message,true);}
+  }catch(e){message('⚠️ '+e.message,true);if(action==='playlist')$('playlistResult').textContent='⚠️ '+e.message;}
  }
  function render(bot){
   $('status').textContent=bot.connected?'Połączony z głosem • '+bot.playerStatus:'Bot na serwerze (bez połączenia głosowego)';
@@ -105,7 +106,7 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
   $('queue').replaceChildren();
   if(!bot.queue.length){const li=document.createElement('li');li.textContent='Brak kolejnych utworów';$('queue').append(li);}
   else bot.queue.forEach(title=>{const li=document.createElement('li');li.textContent=title;$('queue').append(li);});
-  document.querySelectorAll('[data-act],#saveVolume,#saveDJ,#addVideo,#playRadio').forEach(button=>{button.disabled=!bot.connected;});
+  document.querySelectorAll('[data-act],#saveVolume,#saveDJ,#addVideo,#addPlaylist,#playRadio').forEach(button=>{button.disabled=!bot.connected;});
   $('connection').textContent=bot.connected?'● Bot połączony':'● Czeka na kanał głosowy';
  }
  async function refresh(){
@@ -134,6 +135,13 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
  $('saveVolume').addEventListener('click',()=>void send('volume',Number($('volume').value)));
  $('saveDJ').addEventListener('click',()=>void send('dj',$('dj').value));
  $('addVideo').addEventListener('click',()=>{const url=$('youtubeUrl').value.trim();if(!url)return message('Wpisz link YouTube.',true);void send('play',url);});
+ $('addPlaylist').addEventListener('click',()=>{
+  const url=$('playlistUrl').value.trim(),start=Number($('playlistStart').value),limit=Number($('playlistLimit').value);
+  if(!url)return message('Wklej link do playlisty YouTube.',true);
+  if(!Number.isInteger(start)||start<1||start>10000||!Number.isInteger(limit)||limit<1||limit>100||start+limit-1>10000)return message('Podaj poprawny zakres (1–100 utworów, maksymalna pozycja 10000).',true);
+  $('playlistResult').textContent='⏳ Trwa odczyt playlisty YouTube. Może to potrwać do 2 minut…';
+  void send('playlist',{url,start,limit});
+ });
  $('playRadio').addEventListener('click',()=>{const name=$('radioName').value.trim();if(!name)return message('Podaj nazwę stacji.',true);void send('radio',name);});
  $('logout').addEventListener('click',async()=>{await api('/auth/logout',{method:'POST',headers:{'content-type':'application/json'}}).catch(()=>{});location.href='/dashboard';});
  void init();
