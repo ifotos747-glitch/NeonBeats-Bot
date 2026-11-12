@@ -8,7 +8,7 @@ const {loadYoutubePlaylist,isYouTubePlaylistUrl,validateRange}=require('./youtub
 const radio=require('./global-radio'),store=require('./store'),premium=require('./premium');
 const {sessions}=require('./player');
 
-const VALID_ACTIONS=new Set(['pause','resume','skip','stop','shuffle','repeat','volume','play','playlist','radio','dj','clear','search','save-list','load-list','delete-list','queue-move','queue-remove','favorite-add','favorite-remove','radio-search','premium-grant','premium-revoke','premium-status']);
+const VALID_ACTIONS=new Set(['pause','resume','skip','stop','shuffle','repeat','volume','play','playlist','radio','dj','clear','search','save-list','load-list','delete-list','queue-move','queue-remove','favorite-add','favorite-remove','radio-search','premium-grant','premium-revoke','premium-status','premium-list','premium-manage']);
 const lastCurrent=new Map();
 async function searchMusic(query){
  if(typeof query!=='string'||query.trim().length<2||query.length>80)throw Error('Wyszukiwanie: wpisz 2–80 znaków.');
@@ -50,6 +50,17 @@ async function perform(client,cmd){
  if(!/^\d{15,24}$/.test(String(cmd.guild_id||''))||!VALID_ACTIONS.has(cmd.action))throw Error('Niepoprawne polecenie.');
  if(!client.guilds.cache.has(cmd.guild_id))throw Error('Bot nie jest członkiem wybranego serwera.');
  const value=cmd.value===null?null:JSON.parse(cmd.value);
+ if(cmd.action==='premium-list'){
+  premium.requireOwner(cmd.user_id);
+  return JSON.stringify(premium.list([...client.guilds.cache.values()].map(g=>({id:g.id,name:g.name})),value??0));
+ }
+ if(cmd.action==='premium-manage'){
+  premium.requireOwner(cmd.user_id);
+  if(!value||typeof value!=='object'||!/^\d{15,24}$/.test(String(value.guildId||''))||!['grant','revoke'].includes(value.operation))throw Error('Niepoprawne polecenie administracyjne Premium.');
+  if(!client.guilds.cache.has(value.guildId))throw Error('Bot nie należy do wskazanego serwera.');
+  const state=value.operation==='grant'?premium.grant(value.guildId,value.days,cmd.user_id):premium.revoke(value.guildId,cmd.user_id);
+  return 'Premium dla '+value.guildId+': '+(state.active?'aktywne do '+new Date(state.expiresAt).toISOString().slice(0,10):'wyłączone')+'.';
+ }
  if(cmd.action==='premium-grant'){premium.requireOwner(cmd.user_id);const state=premium.grant(cmd.guild_id,value,cmd.user_id);return 'Premium aktywne do '+new Date(state.expiresAt).toISOString().slice(0,10)+' ('+state.daysLeft+' dni).';}
  if(cmd.action==='premium-revoke'){premium.requireOwner(cmd.user_id);premium.revoke(cmd.guild_id,cmd.user_id);return 'Premium wyłączone na tym serwerze.';}
  if(cmd.action==='premium-status'){const state=premium.status(cmd.guild_id);return state.active?'Premium aktywne do '+new Date(state.expiresAt).toISOString().slice(0,10)+'.':'Premium nieaktywne.';}
