@@ -43,13 +43,13 @@ class MusicSession{
   this.process=null;this.ytProcess=null;this.netAbort=null;this.timer=null;this.retry=null;this.startupTimer=null;this.watchdog=null;this.blockUntil=0;
   this.lastError='';this.closed=false;this.starting=false;this.retryCount=0;
   this.panelFactory=null;this.panelMessage=null;this.panelChannelId=null;this.panelUpdate=null;this.panelDirty=false;this.panelLastEdit=0;
-  this.repeatMode='off';this.skipRequested=false;this.playedCount=0;
+  this.repeatMode='off';this.skipRequested=false;this.playedCount=0;this.playingSince=0;
   this.connection=joinVoiceChannel({channelId:voiceChannel.id,guildId:guild.id,adapterCreator:guild.voiceAdapterCreator,selfDeaf:true,selfMute:false});
   this.player=createAudioPlayer({behaviors:{noSubscriber:NoSubscriberBehavior.Pause,maxMissedFrames:MAX_MISSED_FRAMES}});
   this.connection.subscribe(this.player);
   this.player.on(AudioPlayerStatus.Idle,()=>this.onIdle());
   this.player.on(AudioPlayerStatus.Playing,()=>{
-   clearTimeout(this.startupTimer);this.startupTimer=null;this.retryCount=0;
+   clearTimeout(this.startupTimer);this.startupTimer=null;this.playingSince=Date.now();
    if(this.current){this.playedCount++;void this.showControlPanel(this.current);}
   });
   this.player.on('error',e=>this.fail('Discord Voice: '+e.message));
@@ -147,13 +147,15 @@ class MusicSession{
   if(this.closed)return;
   const previous=this.current,skipped=this.skipRequested;
   this.skipRequested=false;
-  if(previous&&this.repeatMode==='one'&&!skipped&&!previous.continuous){
+  if(previous&&this.repeatMode==='one'&&!skipped&&!previous.continuous&&!['radio','stream'].includes(previous.kind)){
    this.queue.unshift({...previous,compatRetries:0});
   }else if(previous&&!skipped&&['radio','stream'].includes(previous.kind)){
    // Short dropouts can exhaust Discord's incoming frames without an HTTP error.
    // The station must reconnect even if FFmpeg exits cleanly.
    if(previous.continuous){
-    this.retryCount=Math.min(6,this.retryCount+1);
+    if(this.playingSince&&Date.now()-this.playingSince>90000)this.retryCount=0;
+    if(item?.continuous&&this.playingSince&&Date.now()-this.playingSince>90000)this.retryCount=0;
+  this.retryCount=Math.min(6,this.retryCount+1);
     this.blockUntil=Date.now()+Math.min(45000,1500*2**Math.min(4,this.retryCount));
    }else{
     const next=retryRadioTrack(previous);
@@ -161,7 +163,7 @@ class MusicSession{
     else this.announce('⚠️ Radio: przerwy w sygnale powtarzają się. Sprawdź adres stacji lub /radio diagnoza.');
    }
   }
-  this.cleanProcess();this.resource=null;this.current=null;
+  this.cleanProcess();this.resource=null;this.current=null;this.playingSince=0;
   if(!this.starting)void this.startNext();
  }
  fail(message){
@@ -277,7 +279,7 @@ class MusicSession{
   child.once('close',(code,signal)=>{
     if(this.closed||this.process!==child||child.killed)return;
     if(code!==0||bytes===0)this.fail('FFmpeg: '+(errorText(stderr)||('brak danych audio (kod: '+(code===null?'brak':code)+', sygnał: '+(signal||'brak')+', bajty: '+bytes+')')));
-    else this.retryCount=0;
+    // A clean FFmpeg exit alone does not prove that a live radio source is stable.
   });
   // Radio gets a larger initial cushion than YouTube, because a live stream
   // cannot request missing packets again. Both values remain configurable.
