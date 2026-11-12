@@ -62,7 +62,7 @@ async function youtubeVideoTitle(url,{fetchImpl=fetch,timeoutMs=4500}={}){
   const response=await fetchImpl(endpoint,{signal:AbortSignal.timeout(timeoutMs),headers:{'Accept':'application/json'}});
   if(!response.ok)return null;
   const body=await response.json();
-  const title=typeof body?.title==='string'?body.title.replace(/[\\r\\n\\t<>@]/g,' ').trim().slice(0,140):'';
+  const title=typeof body?.title==='string'?body.title.replace(/[\x00-\x1f<>@]/g,' ').trim().slice(0,140):'';
   if(!title)return null;
   if(titleCache.size>=200)titleCache.delete(titleCache.keys().next().value);
   titleCache.set(normalized,{title,expires:Date.now()+6*60*60*1000});
