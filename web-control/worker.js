@@ -73,8 +73,10 @@ async function authorizedGuilds(sessionInfo){
 }
 function validAction(body){
  if(!body||typeof body!=='object')return false;
- const allowed=['pause','resume','skip','stop','shuffle','repeat','volume','play','playlist','radio','dj','clear'];
+ const allowed=['pause','resume','skip','stop','shuffle','repeat','volume','play','playlist','radio','dj','clear','search','save-list','load-list','delete-list'];
  if(!allowed.includes(body.action))return false;
+ if(body.action==='search')return typeof body.value==='string'&&body.value.trim().length>=2&&body.value.length<=80;
+ if(['save-list','load-list','delete-list'].includes(body.action))return typeof body.value==='string'&&body.value.trim().length>0&&body.value.length<=40;
  if(body.action==='volume')return Number.isInteger(body.value)&&body.value>=0&&body.value<=150;
  if(body.action==='play')return typeof body.value==='string'&&body.value.length<=500&&/^https:\/\/(?:www\.)?(?:youtube\.com|youtu\.be|music\.youtube\.com)\//i.test(body.value);
  if(body.action==='playlist'){
@@ -137,7 +139,7 @@ async function handle(request,env){
   if(!Array.isArray(data.guilds)||data.guilds.length>300)return fail('Nieprawidłowe dane bota.');
   const batch=data.guilds.filter(g=>validGuild(g.id)).map(g=>env.DB.prepare(
    'INSERT INTO snapshots(guild_id,payload,updated_at) VALUES(?,?,?) ON CONFLICT(guild_id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at WHERE snapshots.payload<>excluded.payload OR snapshots.updated_at<excluded.updated_at-15000'
-  ).bind(g.id,JSON.stringify({connected:!!g.connected,channelId:g.channelId||null,nowPlaying:String(g.nowPlaying||'').slice(0,140),queue:(g.queue||[]).slice(0,15).map(x=>String(x).slice(0,140)),volume:g.volume??85,repeat:g.repeat||'off',dj:g.dj||'off',playerStatus:g.playerStatus||'idle'}),now()));
+  ).bind(g.id,JSON.stringify({connected:!!g.connected,channelId:g.channelId||null,nowPlaying:String(g.nowPlaying||'').slice(0,140),nowSource:typeof g.nowSource==='string'&&/^https:\/\/www\.youtube\.com\/watch\?v=[\w-]{11}$/.test(g.nowSource)?g.nowSource:null,history:(g.history||[]).slice(0,30).map(x=>({title:String(x.title||'').slice(0,140),source:String(x.source||'').slice(0,500),kind:String(x.kind||'').slice(0,30),at:Number(x.at)||0})),savedPlaylists:(g.savedPlaylists||[]).slice(0,25).map(x=>({name:String(x.name||'').slice(0,40),count:Number(x.count)||0})),queue:(g.queue||[]).slice(0,15).map(x=>String(x).slice(0,140)),volume:g.volume??85,repeat:g.repeat||'off',dj:g.dj||'off',playerStatus:g.playerStatus||'idle'}),now()));
   for(let i=0;i<batch.length;i+=50)await env.DB.batch(batch.slice(i,i+50));
   const cmds=await env.DB.prepare("UPDATE commands SET status='running' WHERE id IN (SELECT id FROM commands WHERE status='pending' ORDER BY created_at ASC LIMIT 15) RETURNING id,guild_id,action,value").all();
   return json({commands:cmds.results||[]});
@@ -146,7 +148,7 @@ async function handle(request,env){
   if(!isBridge(request,env))return fail('Nieautoryzowany bot.',401);
   const body=await request.json();
   if(typeof body.id!=='string'||!['done','failed'].includes(body.status))return fail('Niepoprawny wynik.');
-  await env.DB.prepare("UPDATE commands SET status=?,result=? WHERE id=? AND status='running'").bind(body.status,String(body.result||'').slice(0,250),body.id).run();
+  await env.DB.prepare("UPDATE commands SET status=?,result=? WHERE id=? AND status='running'").bind(body.status,String(body.result||'').slice(0,4000),body.id).run();
   return json({ok:true});
  }
  if(pathname.startsWith('/api/')){
