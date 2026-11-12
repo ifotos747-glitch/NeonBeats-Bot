@@ -21,6 +21,8 @@ const commands=[
  new SlashCommandBuilder().setName('youtube').setDescription('YouTube: silnik, instalacja i diagnostyka')
    .addSubcommand(s=>s.setName('status').setDescription('Sprawdź silnik yt-dlp'))
    .addSubcommand(s=>s.setName('install').setDescription('Zainstaluj oficjalne yt-dlp (administrator)'))
+   .addSubcommand(s=>s.setName('aktualizuj').setDescription('Zaktualizuj yt-dlp do najnowszej stabilnej wersji'))
+   .addSubcommand(s=>s.setName('napraw').setDescription('Sprawdź stan i podpowiedz naprawę YouTube'))
    .addSubcommand(s=>s.setName('playlista').setDescription('Dodaj filmy z playlisty YouTube do kolejki')
      .addStringOption(o=>o.setName('url').setDescription('Link do playlisty YouTube').setRequired(true))
      .addIntegerOption(o=>o.setName('od').setDescription('Od której pozycji playlisty (domyślnie 1)').setMinValue(1).setMaxValue(10000))
