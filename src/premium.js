@@ -4,8 +4,8 @@
 const store=require('./store');
 const DAY=24*60*60*1000;
 const PREMIUM_DJ=new Set(['stadium','lofi','crystal']);
-function status(guildId,at=Date.now()){
- const saved=store.read(guildId).premium;
+function status(guildId,at=Date.now(),record=null){
+ const saved=record&&typeof record==='object'?record.premium:store.read(guildId).premium;
  const expiresAt=Number(saved?.expiresAt)||0;
  const active=expiresAt>at;
  return {active,expiresAt:expiresAt>0?expiresAt:null,
