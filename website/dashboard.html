@@ -37,6 +37,7 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
 @media(max-width:750px){.grid{grid-template-columns:1fr}.panel{padding:19px}.row{flex-wrap:wrap}.row .input{min-width:100%}.hero{align-items:flex-start}}
 .cover{width:145px;height:145px;object-fit:cover;border-radius:16px;box-shadow:0 12px 32px #0005;background:#242443;flex-shrink:0}.radio-cover{width:145px;height:145px;border-radius:16px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;background:radial-gradient(circle at 25% 20%,#a54eff,#433cbd 43%,#161333 100%);border:1px solid #ffffff30;box-shadow:0 12px 32px #0005;color:#fff;text-align:center}.radio-cover .radio-note{font-size:48px;line-height:1.1;text-shadow:0 3px 20px #fff5}.radio-cover strong{font-size:13px;letter-spacing:2px}.radio-cover span{font-size:10px;letter-spacing:1px;color:#d9cbff}.cover.hidden,.radio-cover.hidden{display:none!important}.playing{display:flex;align-items:center;gap:20px;flex-wrap:wrap}.media-list{display:grid;gap:11px}.media-row{display:flex;align-items:center;gap:12px;border:1px solid #343756;padding:9px;border-radius:11px}.media-row img{width:54px;height:54px;object-fit:cover;border-radius:8px;background:#292941}.media-row .meta{flex:1;min-width:0;overflow-wrap:anywhere;font-size:13px}.media-row button{padding:9px;font-size:12px}.mini{font-size:12px;color:#aaaed0;margin-top:4px}.page-heading{font-weight:800;color:#a986ff;letter-spacing:1px;font-size:12px;margin:0 0 16px}
 .qrow{display:flex;align-items:center;gap:8px;border:1px solid #353958;border-radius:10px;padding:10px;margin:7px 0;background:#171b37}.qrow[draggable=true]{cursor:grab}.qrow.dragging{opacity:.55}.qrow .qtitle{flex:1;min-width:0;font-size:13px;overflow-wrap:anywhere}.qrow button{padding:7px 10px;font-size:12px}.statgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stat{border:1px solid #343958;background:#10142e;padding:14px;border-radius:12px}.stat b{display:block;font-size:23px;margin:4px 0}.stat span{color:#bec2dc;font-size:12px}
+.visualizer{margin-top:17px;border:1px solid #413969;border-radius:15px;background:linear-gradient(160deg,#161638,#0b1027);padding:16px;overflow:hidden}.viz-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;font-size:12px;color:#c3c2e9}.viz-bars{height:98px;display:flex;justify-content:center;align-items:flex-end;gap:4px}.viz-bars i{display:block;flex:1;max-width:14px;min-height:7px;height:calc(10% + var(--h)*1%);background:linear-gradient(0deg,#755cfb,#5ae9fb);border-radius:5px 5px 2px 2px;transform-origin:bottom;animation:nb-pulse var(--s) ease-in-out infinite alternate;box-shadow:0 0 13px #6b72ec55}.visualizer.paused .viz-bars i{animation-play-state:paused;opacity:.35;transform:scaleY(.12)}.viz-bars i:nth-child(3n){background:linear-gradient(0deg,#9468fc,#e68dff)}@keyframes nb-pulse{from{transform:scaleY(.32)}to{transform:scaleY(1)}}@media(prefers-reduced-motion:reduce){.viz-bars i{animation:none!important;transform:scaleY(.55)}}.radio-search-items{display:grid;gap:8px;margin-top:12px}.radio-search-items .radio-result{display:flex;align-items:center;gap:12px;background:#191c39;border:1px solid #373c61;border-radius:10px;padding:11px}.radio-result strong{flex:1;overflow-wrap:anywhere;font-size:13px}.radio-result button{padding:8px 12px}.dj-guide{font-size:12px;color:#afb4d3;line-height:1.65;margin-top:12px}
 </style>
 </head>
 <body>
@@ -51,7 +52,8 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
 <div class="stack">
 <section class="panel"><div class="label">MUSIC CONTROL</div><h2>🎶 Teraz gra</h2><div class="playing"><img class="cover hidden" id="cover" alt="Okładka aktualnego utworu YouTube"><div class="radio-cover" id="radioCover" aria-label="Grafika zastępcza radia NeonBeats"><span class="radio-note">♫</span><strong>NEONBEATS</strong><span>RADIO LIVE</span></div><div><p class="now" id="song">Nie odtwarza</p><p class="next" id="next">Następny: brak</p></div></div>
 <div class="ctrl"><button data-act="pause">⏸️ Pauza</button><button data-act="resume">▶️ Wznów</button><button data-act="skip">⏭️ Pomiń</button><button data-act="stop" class="danger">⏹️ Stop</button></div>
-<div class="ctrl"><button data-act="shuffle">🔀 Losuj</button><button data-act="repeat">🔁 Powtarzanie</button><button data-act="clear" class="danger">🗑️ Wyczyść kolejkę</button></div></section>
+<div class="ctrl"><button data-act="shuffle">🔀 Losuj</button><button data-act="repeat">🔁 Powtarzanie</button><button data-act="clear" class="danger">🗑️ Wyczyść kolejkę</button></div>
+<div class="visualizer paused" id="visualizer" role="img" aria-label="Animowany wizualizator stanu odtwarzania"><div class="viz-head"><strong>🌈 NEON VISUALIZER</strong><span id="vizStatus">Oczekiwanie na muzykę</span></div><div class="viz-bars" id="vizBars" aria-hidden="true"></div><p class="mini">Wizualizacja animowana — bez analizy rzeczywistego sygnału audio Discord.</p></div></section>
 <section class="panel"><h2>📋 Kolejka — menedżer 3.3</h2><p class="muted">Przeciągnij utwór lub użyj strzałek, aby zmienić kolejność. Usuwanie pozycji nie przerywa aktualnego utworu.</p><div id="queue" aria-label="Kolejka utworów">Brak utworów</div><p class="muted" id="queueCount">0 oczekujących</p></section>
 </div>
 <div class="stack">
@@ -61,13 +63,13 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
 <div class="row spaced"><input class="input" type="range" id="volume" min="0" max="150" step="5" value="85" aria-label="Głośność"><button id="saveVolume">Ustaw</button></div>
 <div class="info"><b>Powtarzanie</b><span id="repeat">Wyłączone</span></div>
 <div class="info"><b>Efekt DJ</b><span id="djLabel">off</span></div>
-<div class="row spaced"><select class="input" id="dj"><option value="off">Wyłączone</option><option value="bass">Bass Boost</option><option value="nightcore">Nightcore</option><option value="slowed">Slowed</option><option value="8d">8D</option><option value="echo">Echo</option><option value="club">Club</option></select><button id="saveDJ">Zastosuj</button></div>
+<div class="row spaced"><select class="input" id="dj"><option value="off">Wyłączone</option><option value="bass">Bass Boost</option><option value="nightcore">Nightcore</option><option value="slowed">Slowed</option><option value="8d">8D</option><option value="echo">Echo</option><option value="club">Club</option><option value="deep">Deep Bass — mocniejszy bas</option><option value="vocal">Vocal Boost — wyraźniejszy wokal</option><option value="soft">Soft Compression — wyrównana dynamika</option></select><button id="saveDJ">Zastosuj</button></div><p id="djDescription" class="dj-guide">Wybierz preset DJ. Zmiana efektu w trakcie utworu może uruchomić go ponownie.</p>
 </section>
 <section class="panel"><h2>➕ Dodaj utwór YouTube</h2><label class="label" for="youtubeUrl">Publiczny link do filmu</label><div class="row"><input class="input" id="youtubeUrl" type="url" maxlength="500" placeholder="https://www.youtube.com/watch?v=…"><button class="primary" id="addVideo">Dodaj</button></div><p class="muted">NeonBeats pobiera dźwięk na ALTARE; strona nie pobiera ani nie hostuje plików.</p></section>
 <section class="panel"><h2>🎶 Playlisty YouTube i YouTube Music</h2><label class="label" for="playlistUrl">Link do publicznej playlisty</label><input class="input" id="playlistUrl" type="url" maxlength="500" placeholder="https://www.youtube.com/playlist?list=…"><div class="row spaced"><div style="flex:1;min-width:120px"><label class="label" for="playlistStart">Od utworu nr</label><input class="input" id="playlistStart" type="number" min="1" max="10000" value="1"></div><div style="flex:1;min-width:120px"><label class="label" for="playlistLimit">Ile utworów (maks. 100)</label><input class="input" id="playlistLimit" type="number" min="1" max="100" value="100"></div></div><div class="ctrl"><button class="primary" id="addPlaylist">➕ Dodaj playlistę do kolejki</button></div><p id="playlistResult" class="muted" role="status" aria-live="polite">Obecny utwór nie zostanie przerwany. Dostępność zależy od YouTube i yt-dlp na ALTARE.</p></section>
 <section class="panel"><h2>🔎 Wyszukiwarka muzyki</h2><p class="muted">Szukaj publicznych utworów YouTube przez silnik NeonBeats na ALTARE.</p><div class="row"><input class="input" id="searchQuery" maxlength="80" placeholder="Wpisz tytuł piosenki lub wykonawcę"><button id="searchButton" class="primary">Szukaj</button></div><p class="muted" id="searchInfo">Wyniki wyszukiwania pojawią się poniżej.</p><div class="media-list" id="searchResults"></div></section>
 <section class="panel"><h2>💾 Moje zapisane playlisty</h2><p class="muted">Zapisz aktualną kolejkę na swoim serwerze Discord. Maksymalnie 25 playlist po 100 utworów.</p><div class="row"><input class="input" id="savedName" maxlength="40" placeholder="Nazwa nowej playlisty"><button class="primary" id="saveListButton">Zapisz kolejkę</button></div><div class="media-list spaced" id="savedLists"><p class="muted">Brak zapisanych playlist.</p></div></section>
-<section class="panel"><h2>📻 Globalne radio</h2><label class="label" for="radioName">Dokładna nazwa stacji z katalogu NeonBeats</label><div class="row"><input class="input" id="radioName" maxlength="100" placeholder="Nazwa stacji"><button id="playRadio">Włącz</button></div></section>
+<section class="panel"><h2>📻 Wyszukiwarka stacji radiowych</h2><p class="muted">Przeszukaj globalny katalog NeonBeats, a następnie włącz stację jednym kliknięciem.</p><div class="row"><input class="input" id="radioSearchQuery" maxlength="70" placeholder="Np. Eska, RMF, rock"><button id="radioSearchButton" class="primary">Szukaj</button></div><p class="muted" id="radioSearchInfo">Podaj fragment nazwy stacji.</p><div class="radio-search-items" id="radioSearchResults"></div><div class="spaced"><label class="label" for="radioName">Albo wpisz nazwę / ID stacji</label><div class="row"><input class="input" id="radioName" maxlength="100" placeholder="Nazwa stacji"><button id="playRadio">Włącz</button></div></div></section>
 </div>
 </div>
 <div class="grid" style="margin-top:18px"><section class="panel"><h2>⭐ Ulubione utwory</h2><p class="muted">Zachowaj maksymalnie 100 filmów YouTube na wybranym serwerze.</p><button id="favoriteCurrent">⭐ Dodaj aktualny utwór</button><div class="media-list spaced" id="favoriteList">Brak ulubionych utworów.</div></section><section class="panel"><h2>📊 Statystyki odtwarzania</h2><p class="muted">Liczby liczone od wdrożenia NeonBeats 3.3 (jedno zdarzenie na rozpoczęcie utworu).</p><div class="statgrid"><div class="stat"><span>Łącznie</span><b id="statTotal">0</b></div><div class="stat"><span>YouTube</span><b id="statYoutube">0</b></div><div class="stat"><span>Radio</span><b id="statRadio">0</b></div><div class="stat"><span>Inne</span><b id="statOther">0</b></div></div></section></div><section class="panel" style="margin-top:18px"><h2>🛡️ Centrum administratora — wszystkie Twoje serwery</h2><p class="muted">Pokazuje tylko serwery, na których masz uprawnienia Zarządzanie serwerem lub Administrator. Wybierz serwer na górze, aby nim sterować.</p><div id="adminGuilds" class="media-list">Ładowanie serwerów…</div></section><div class="grid" style="margin-top:18px"><section class="panel"><h2>🕘 Historia odtwarzania</h2><p class="muted">Ostatnie utwory odtwarzane na wybranym serwerze.</p><div class="media-list" id="historyList"><p class="muted">Brak historii.</p></div></section><section class="panel"><h2>✨ NeonBeats 3.2</h2><p class="muted">Okładki aktualnego utworu YouTube, wyszukiwarka muzyki, trwała historia oraz zapisane playlisty. Wszystko dostępne po zalogowaniu przez Discord.</p><p class="muted">Do odtwarzania nadal wymagany jest aktywny bot na kanale głosowym.</p></section></div><p id="message" role="status" aria-live="polite"></p>
@@ -78,6 +80,7 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
 (function(){
  const $=id=>document.getElementById(id);
  let selected='',signedIn=false,lastBot=null,managedGuilds=[];
+ const djDescriptions={off:'Bez efektów.',bass:'Podbicie niskich częstotliwości.',nightcore:'Szybszy i wyższy dźwięk.',slowed:'Wolniejsze odtwarzanie.', '8d':'Efekt przestrzennego przesuwania dźwięku.',echo:'Efekt echa.',club:'Bas i kompresja w stylu klubowym.',deep:'Mocniejsze podbicie basu.',vocal:'Wzmocnienie pasma wyrazistości wokalu.',soft:'Łagodna kompresja i wyrównanie głośności.'};
  const VIDEO_ID=/^[A-Za-z0-9_-]{11}$/;
  function youtubeId(raw){try{const u=new URL(raw);return u.hostname==='www.youtube.com'&&u.pathname==='/watch'&&VIDEO_ID.test(u.searchParams.get('v')||'')?u.searchParams.get('v'):null;}catch{return null;}}
  function thumb(url){const id=youtubeId(url);return id?'https://i.ytimg.com/vi/'+id+'/mqdefault.jpg':null;}
@@ -87,6 +90,19 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
   const middle=document.createElement('div');middle.className='meta';const text=document.createElement('div');text.textContent=title;middle.append(text);if(subtitle){const sub=document.createElement('div');sub.className='mini';sub.textContent=subtitle;middle.append(sub);}row.append(middle);
   if(action){const btn=document.createElement('button');btn.textContent=actionLabel;btn.addEventListener('click',action);row.append(btn);}return row;
  }
+ function displayRadioSearch(result){
+  let items;try{items=JSON.parse(result);}catch{items=[];}
+  const box=$('radioSearchResults');box.replaceChildren();
+  if(!Array.isArray(items)||!items.length){$('radioSearchInfo').textContent='Nie znaleziono stacji w katalogu NeonBeats.';return;}
+  $('radioSearchInfo').textContent='Znaleziono '+items.length+' stacji (maksymalnie 15 wyników).';
+  for(const item of items){if(typeof item.name!=='string'||typeof item.id!=='string')continue;
+   const row=document.createElement('div');row.className='radio-result';const icon=document.createElement('span');icon.textContent='📻';row.append(icon);
+   const title=document.createElement('strong');title.textContent=item.name;row.append(title);
+   const button=document.createElement('button');button.textContent='▶ Włącz';button.addEventListener('click',()=>void send('radio',item.id));row.append(button);box.append(row);
+  }
+ }
+ const visualBars=$('vizBars');
+ for(let i=0;i<34;i++){const bar=document.createElement('i');bar.style.setProperty('--h',String(15+(i*37+17)%75));bar.style.setProperty('--s',(0.55+((i*11)%13)/17).toFixed(2)+'s');visualBars.append(bar);}
  function displaySearch(result){const holder=$('searchResults');holder.replaceChildren();let items;try{items=JSON.parse(result);}catch{items=[];}
   if(!Array.isArray(items)||!items.length){$('searchInfo').textContent='Nie znaleziono dostępnych utworów.';return;}
   $('searchInfo').textContent='Znaleziono '+items.length+' utworów. Kliknij Dodaj, aby umieścić utwór w kolejce.';
@@ -148,11 +164,11 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
   try{
    const data=await api('/api/guild/'+selected+'/control',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action,...(value===undefined?{}:{value})})});
    message('Wysłano polecenie do NeonBeats. Oczekiwanie na odpowiedź…');
-   for(let i=0;i<(action==='playlist'?85:action==='search'?35:8);i++){
+   for(let i=0;i<(action==='playlist'?85:action==='search'?35:action==='radio-search'?18:8);i++){
     await new Promise(r=>setTimeout(r,1600));
     const cmd=await api('/api/command/'+data.id);
-    if(cmd.status==='done'){if(action==='search'){displaySearch(cmd.result);message('✅ Wyszukiwanie zakończone.');return;}message('✅ '+(cmd.result||'Wykonano.'));if(action==='playlist')$('playlistResult').textContent=cmd.result||'Playlista dodana.';await refresh();return;}
-    if(cmd.status==='failed'){message('⚠️ '+(cmd.result||'Nie udało się wykonać polecenia.'),true);if(action==='search')$('searchInfo').textContent='⚠️ '+(cmd.result||'Wyszukiwanie nie powiodło się.');if(action==='playlist')$('playlistResult').textContent='⚠️ '+(cmd.result||'Nie udało się odczytać playlisty.');await refresh();return;}
+    if(cmd.status==='done'){if(action==='radio-search'){displayRadioSearch(cmd.result);message('✅ Wyszukiwanie stacji zakończone.');return;}if(action==='search'){displaySearch(cmd.result);message('✅ Wyszukiwanie zakończone.');return;}message('✅ '+(cmd.result||'Wykonano.'));if(action==='playlist')$('playlistResult').textContent=cmd.result||'Playlista dodana.';await refresh();return;}
+    if(cmd.status==='failed'){message('⚠️ '+(cmd.result||'Nie udało się wykonać polecenia.'),true);if(action==='search')$('searchInfo').textContent='⚠️ '+(cmd.result||'Wyszukiwanie nie powiodło się.');if(action==='radio-search')$('radioSearchInfo').textContent='⚠️ '+(cmd.result||'Błąd wyszukiwania radia.');if(action==='playlist')$('playlistResult').textContent='⚠️ '+(cmd.result||'Nie udało się odczytać playlisty.');await refresh();return;}
    }
    message('Polecenie w kolejce. Odśwież panel za chwilę.');
   }catch(e){message('⚠️ '+e.message,true);if(action==='playlist')$('playlistResult').textContent='⚠️ '+e.message;}
@@ -169,11 +185,14 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
   renderHistory(bot.history);renderSaved(bot.savedPlaylists);
   $('volume').value=String(bot.volume);$('volumeLabel').textContent=bot.volume+'%';
   $('repeat').textContent=bot.repeat==='one'?'Jeden utwór':'Wyłączone';
-  $('djLabel').textContent=bot.dj;$('dj').value=bot.dj;
+  $('djLabel').textContent=bot.dj;$('dj').value=bot.dj;$('djDescription').textContent=djDescriptions[bot.dj]||djDescriptions.off;
+  const playing=bot.connected&&bot.playerStatus==='playing'&&!!bot.nowPlaying;
+  $('visualizer').classList.toggle('paused',!playing);
+  $('vizStatus').textContent=playing?'Odtwarzanie aktywne':bot.connected?'Pauza / buforowanie':'Bot offline';
   lastBot=bot;renderQueue(bot);renderFavorites(bot.favorites);
   for(const key of ['total','youtube','radio','other'])$('stat'+key[0].toUpperCase()+key.slice(1)).textContent=Number(bot.stats?.[key]||0).toLocaleString('pl-PL');
   $('favoriteCurrent').disabled=!youtubeId(bot.nowSource);
-  document.querySelectorAll('[data-act],#saveVolume,#saveDJ,#addVideo,#addPlaylist,#playRadio,#searchButton,#saveListButton').forEach(button=>{button.disabled=!bot.connected;});
+  document.querySelectorAll('[data-act],#saveVolume,#saveDJ,#addVideo,#addPlaylist,#playRadio,#searchButton,#radioSearchButton,#saveListButton').forEach(button=>{button.disabled=!bot.connected;});
   $('connection').textContent=bot.connected?'● Bot połączony':'● Czeka na kanał głosowy';
  }
  async function refresh(){
@@ -219,6 +238,9 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
   $('playlistResult').textContent='⏳ Trwa odczyt playlisty YouTube. Może to potrwać do 2 minut…';
   void send('playlist',{url,start,limit});
  });
+ $('radioSearchButton').addEventListener('click',()=>{const q=$('radioSearchQuery').value.trim();if(!q)return message('Podaj fragment nazwy stacji.',true);$('radioSearchInfo').textContent='⏳ Wyszukiwanie radia…';void send('radio-search',q);});
+ $('radioSearchQuery').addEventListener('keydown',event=>{if(event.key==='Enter')$('radioSearchButton').click();});
+ $('dj').addEventListener('change',()=>{$('djDescription').textContent=djDescriptions[$('dj').value]||djDescriptions.off;});
  $('searchButton').addEventListener('click',()=>{const q=$('searchQuery').value.trim();if(q.length<2)return message('Wpisz co najmniej 2 znaki.',true);$('searchInfo').textContent='⏳ Szukam utworów w YouTube…';void send('search',q);});
  $('searchQuery').addEventListener('keydown',e=>{if(e.key==='Enter')$('searchButton').click();});
  $('saveListButton').addEventListener('click',()=>{const name=$('savedName').value.trim();if(!name)return message('Podaj nazwę playlisty.',true);void send('save-list',name);});
