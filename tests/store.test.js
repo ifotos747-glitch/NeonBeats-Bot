@@ -24,4 +24,15 @@ test('247 config and isolation',()=>{
  store.set247(id,null);assert.equal(store.read(id).alwaysOn,null);
  assert.throws(()=>store.read('../bad'));
 });
+test('3.2 playback history is persistent, bounded, and isolated by guild',()=>{
+ const track={kind:'youtube-link',source:'https://www.youtube.com/watch?v=dQw4w9WgXcQ',title:'Test Track'};
+ store.recordPlay(id,track);
+ store.recordPlay(id,track);
+ assert.equal(store.read(id).history.length,1);
+ assert.equal(store.read(id).history[0].title,'Test Track');
+ assert.equal(store.read('123456789012345679').history.length,0);
+ for(let i=0;i<65;i++)store.recordPlay(id,{...track,source:'https://www.youtube.com/watch?v='+String(i).padStart(11,'0'),title:'Song '+i});
+ assert.equal(store.read(id).history.length,60);
+ assert.equal(store.read(id).history[0].title,'Song 64');
+});
 test.after(()=>fs.rmSync(dir,{force:true,recursive:true}));
