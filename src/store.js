@@ -4,7 +4,7 @@ const {DATA,SNOWFLAKE}=require('./config');
 const {validatePublicUrl,restoreTrack}=require('./media');
 const {PRESETS}=require('./effects');
 function location(id){if(!SNOWFLAKE.test(String(id)))throw Error('Niepoprawne ID serwera');return path.join(DATA,String(id)+'.json');}
-function fresh(){return{version:1,radios:[],radioFavorites:[],playlists:{},dj:'off',alwaysOn:null};}
+function fresh(){return{version:1,radios:[],radioFavorites:[],playlists:{},history:[],dj:'off',alwaysOn:null};}
 function read(id){
  const file=location(id);if(!fs.existsSync(file))return fresh();
  let data;try{data=JSON.parse(fs.readFileSync(file,'utf8'));}catch{throw Error('Uszkodzony zapis serwera: '+path.basename(file));}
@@ -12,6 +12,7 @@ function read(id){
  if(Array.isArray(data.radios))d.radios=data.radios.filter(x=>x&&typeof x.name==='string'&&typeof x.url==='string'&&typeof x.id==='string');
  if(Array.isArray(data.radioFavorites))d.radioFavorites=data.radioFavorites.filter(x=>typeof x==='string').slice(0,50);
  if(data.playlists&&typeof data.playlists==='object'&&!Array.isArray(data.playlists))d.playlists=data.playlists;
+ if(Array.isArray(data.history))d.history=data.history.filter(x=>x&&typeof x.title==='string').slice(0,60);
  if(Object.hasOwn(PRESETS,data.dj))d.dj=data.dj;
  if(data.alwaysOn&&['radio','autodj','silent'].includes(data.alwaysOn.mode))d.alwaysOn=data.alwaysOn;
  return d;
@@ -53,9 +54,16 @@ function deletePlaylist(id,name){
  const d=read(id);if(!Object.hasOwn(d.playlists,name))throw Error('Nie znaleziono playlisty.');
  delete d.playlists[name];write(id,d);
 }
+function recordPlay(id,track){
+ if(!track||!track.title)return;
+ const d=read(id),last=d.history[0];
+ if(last&&last.source===track.source&&Date.now()-last.at<120000)return;
+ d.history.unshift({title:String(track.title).slice(0,140),source:String(track.source||'').slice(0,500),kind:String(track.kind||''),at:Date.now()});
+ d.history=d.history.slice(0,60);write(id,d);
+}
 function setDJ(id,preset){
  if(!Object.hasOwn(PRESETS,preset))throw Error('Nieznany preset DJ.');
  const d=read(id);d.dj=preset;write(id,d);
 }
 function set247(id,config){const d=read(id);d.alwaysOn=config;write(id,d);}
-module.exports={read,write,addRadio,removeRadio,savePlaylist,loadPlaylist,deletePlaylist,setDJ,set247};
+module.exports={read,write,addRadio,removeRadio,savePlaylist,loadPlaylist,deletePlaylist,recordPlay,setDJ,set247};
