@@ -25,6 +25,7 @@ async function searchMusic(query){
  });
 }
 function safeSnapshot(client){
+ const radioCount=radio.list().length;
  return [...client.guilds.cache.values()].map(guild=>{
   const s=sessions.get(guild.id);
   const current=s?.current;
@@ -39,8 +40,8 @@ function safeSnapshot(client){
    savedPlaylists:Object.entries(saved.playlists).slice(0,50).map(([name,tracks])=>({name,count:Array.isArray(tracks)?tracks.length:0})),
    favorites:saved.favorites.slice(0,250),stats:saved.stats,
    queueTotal:s?.queue?.length||0,
-   radioCount:radio.list().length,
-   premium:premium.status(guild.id),
+   radioCount,
+   premium:premium.status(guild.id,Date.now(),saved),
    nowPlaying:s?.current?.title||'',queue:s?.queue?.slice(0,15).map(x=>x.title)||[],
    volume:s?.volume??85,repeat:s?.repeatMode||'off',dj:s?.dj||'off',
    playerStatus:s?.player?.state?.status||'idle'};
@@ -162,7 +163,21 @@ function startWebControl(client,{fetchImpl=fetch,intervalMs=3000}={}){
   console.warn('⚠️ Web Control wyłączony: wymagane https://... oraz silny sekret (min. 32 znaki).');return null;
  }
  let busy=false,stopped=false;
- let jobChain=Promise.resolve();
+ const guildJobs=new Map();
+ function scheduleCommand(command){
+  // Keep the commands in order for one guild, but never let a slow playlist
+  // extraction on guild A block stop/skip on independent guild B.
+  const id=command.guild_id;
+  const previous=guildJobs.get(id)||Promise.resolve();
+  const next=previous.catch(()=>{}).then(async()=>{
+   let status='done',result='';
+   try{result=await perform(client,command);}catch(e){status='failed';result=String(e.message||e).slice(0,2000);}
+   try{await request('/api/bridge/result',{id:command.id,status,result});}
+   catch(e){console.warn('🌐 Web Control: nie zapisano wyniku '+String(e.message));}
+  });
+  guildJobs.set(id,next);
+  void next.finally(()=>{if(guildJobs.get(id)===next)guildJobs.delete(id);}).catch(()=>{});
+ }
  const request=async(path,data)=>{
   const response=await fetchImpl(base+path,{method:'POST',
    headers:{authorization:'Bearer '+secret,'content-type':'application/json'},
@@ -174,15 +189,7 @@ function startWebControl(client,{fetchImpl=fetch,intervalMs=3000}={}){
   if(busy||stopped)return;busy=true;
   try{
    const report=await request('/api/bridge/sync',{guilds:safeSnapshot(client)});
-   for(const command of report.commands||[]){
-    // Playlist metadata may take two minutes. Keep heartbeat/snapshots alive while it loads.
-    jobChain=jobChain.catch(()=>{}).then(async()=>{
-     let status='done',result='';
-     try{result=await perform(client,command);}catch(e){status='failed';result=String(e.message||e).slice(0,2000);}
-     try{await request('/api/bridge/result',{id:command.id,status,result});}
-     catch(e){console.warn('🌐 Web Control: nie zapisano wyniku '+String(e.message));}
-    });
-   }
+   for(const command of report.commands||[])scheduleCommand(command);
   }catch(e){console.warn('🌐 Web Control: '+String(e.message||e).slice(0,130));}
   finally{busy=false;}
  }
