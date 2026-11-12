@@ -7,7 +7,9 @@ test('accepts video, shorts and music links',()=>{
   'https://www.youtube.com/watch?v='+id+'&list=123',
   'https://youtu.be/'+id+'?t=5',
   'https://music.youtube.com/watch?v='+id,
-  'https://www.youtube.com/shorts/'+id
+  'https://www.youtube.com/shorts/'+id,
+  'https://www.youtube.com/embed/'+id,
+  'https://www.youtube-nocookie.com/embed/'+id
  ])assert.equal(normalizeYouTubeUrl(url),expected);
 });
 test('rejects channels, playlists, malformed IDs and private hosts',()=>{
@@ -29,4 +31,11 @@ test('redacts URLs and does not ask users for cookies',()=>{
  const msg=cleanYtdlpError('ERROR: Sign in to confirm you are not a bot: https://example.org/abc?secret=xyz');
  assert.match(msg,/weryfikacji/);
  assert.doesNotMatch(msg,/secret=xyz/);
+});
+
+test('YouTube compatibility options are bounded and secure',()=>{
+ const args=youtubeArgs('https://youtu.be/dQw4w9WgXcQ',true);
+ assert.deepEqual(args.slice(args.indexOf('--retries'),args.indexOf('--retries')+2),['--retries','5']);
+ assert.ok(args.includes('--ignore-config'));
+ assert.ok(args.includes('--no-playlist'));
 });
