@@ -39,7 +39,7 @@ function videoIdFromItem(item){
   let id;
   if(['youtu.be','www.youtu.be'].includes(url.hostname.toLowerCase()))id=url.pathname.slice(1);
   else if(url.pathname==='/watch')id=url.searchParams.get('v');
-  else if(/^\/(?:shorts|live)\/[^/]+\/?$/.test(url.pathname))id=url.pathname.split('/')[2];
+  else if(/^\/(?:shorts|live|embed)\/[^/]+\/?$/.test(url.pathname))id=url.pathname.split('/')[2];
   if(VIDEO_ID.test(id||''))return id;
  }
  return null;
