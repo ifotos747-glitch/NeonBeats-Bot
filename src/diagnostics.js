@@ -82,7 +82,7 @@ function diagnoseStream(rawUrl,{spawnProcess=spawn,pipeAudio=pipeHttpAudio,timeo
    finish(null,'TIMEOUT',Error('Brak odpowiedzi FFmpeg.'));
   },timeoutMs);
   timer.unref?.();
-  Promise.resolve().then(()=>pipeAudio(url,child.stdin,{signal:controller.signal})).catch(err=>{
+  Promise.resolve(pipeAudio(url,child.stdin,{signal:controller.signal})).catch(err=>{
    if(done||controller.signal.aborted)return;
    try{child.kill('SIGKILL');}catch{}
    finish(null,null,err);
