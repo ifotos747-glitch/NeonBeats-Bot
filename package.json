@@ -1,8 +1,8 @@
 {
   "name": "neonbeats-bot",
-  "version": "3.7.2",
+  "version": "3.7.3",
   "private": true,
-  "description": "NeonBeats 3.7.2 — RADIO COMPATIBILITY | Discord music, radio 24/7, AutoDJ, DJ effects and playlists",
+  "description": "NeonBeats 3.7.3 — RADIO JITTER GUARD | Discord music, radio 24/7, AutoDJ, DJ effects and playlists",
   "main": "index.js",
   "engines": {
     "node": ">=24.17.0"
