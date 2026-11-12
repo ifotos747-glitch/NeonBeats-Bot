@@ -50,8 +50,8 @@ async function botOnline(env,guildId){
 async function handle(request,env){
  const url=new URL(request.url),pathname=url.pathname;
  if(pathname==='/dashboard'&&request.method==='GET'){
-  const assetUrl=new URL('/dashboard.html',request.url);
-  return env.ASSETS.fetch(new Request(assetUrl,request));
+  // Fetch the canonical, extensionless asset path directly to avoid an HTML redirect loop.
+  return env.ASSETS.fetch(request);
  }
  if(pathname==='/api/health')return json({ok:true,service:'NeonBeats Web Control',time:now()});
  if(pathname==='/auth/login'&&request.method==='GET'){
