@@ -1,8 +1,8 @@
 {
   "name": "neonbeats-bot",
-  "version": "2.3.0",
+  "version": "2.3.1",
   "private": true,
-  "description": "NeonBeats Bot 2.1 — REMIX COMPATIBILITY | Discord music, radio 24/7, AutoDJ, DJ effects and playlists",
+  "description": "NeonBeats Bot 2.3.1 — YOUTUBE PLAYBACK HOTFIX | Discord music, radio 24/7, AutoDJ, DJ effects and playlists",
   "main": "index.js",
   "engines": {
     "node": ">=24.17.0"
