@@ -3,6 +3,7 @@ const fs=require('node:fs'),path=require('node:path');
 const {spawn}=require('node:child_process');
 const {randomInt}=require('node:crypto');
 const {pipeHttpAudio}=require('./network');
+const {bufferPcm}=require('./audio-buffer');
 const {spawnYouTube,cleanYtdlpError,selectAudioProfile,isPyInstallerError}=require('./youtube');
 const {joinVoiceChannel,createAudioPlayer,createAudioResource,AudioPlayerStatus,VoiceConnectionStatus,NoSubscriberBehavior,StreamType,entersState}=require('@discordjs/voice');
 const {MUSIC,ffmpegPath,IDLE_MINUTES}=require('./config');
@@ -20,9 +21,9 @@ class MusicSession{
   this.guildId=guild.id;this.channelId=voiceChannel.id;this.textChannel=textChannel;
   this.queue=[];this.current=null;this.volume=85;this.autodj=false;this.autodjIndex=0;
   this.alwaysOn=null;this.dj=store.read(guild.id).dj;
-  this.process=null;this.ytProcess=null;this.netAbort=null;this.timer=null;this.retry=null;this.startupTimer=null;this.blockUntil=0;
+  this.process=null;this.ytProcess=null;this.netAbort=null;this.timer=null;this.retry=null;this.startupTimer=null;this.watchdog=null;this.blockUntil=0;
   this.lastError='';this.closed=false;this.starting=false;this.retryCount=0;
-  this.panelFactory=null;this.panelMessage=null;this.panelChannelId=null;this.panelUpdate=Promise.resolve();
+  this.panelFactory=null;this.panelMessage=null;this.panelChannelId=null;this.panelUpdate=null;this.panelDirty=false;this.panelLastEdit=0;
   this.repeatMode='off';this.skipRequested=false;this.playedCount=0;
   this.connection=joinVoiceChannel({channelId:voiceChannel.id,guildId:guild.id,adapterCreator:guild.voiceAdapterCreator,selfDeaf:true,selfMute:false});
   this.player=createAudioPlayer({behaviors:{noSubscriber:NoSubscriberBehavior.Pause}});
@@ -36,29 +37,42 @@ class MusicSession{
   this.connection.on('error',e=>this.fail('Połączenie głosowe: '+e.message));
   this.connection.on(VoiceConnectionStatus.Disconnected,()=>{
     if(this.closed)return;
-    void Promise.race([entersState(this.connection,VoiceConnectionStatus.Signalling,5_000),entersState(this.connection,VoiceConnectionStatus.Connecting,5_000)])
+    void Promise.race([entersState(this.connection,VoiceConnectionStatus.Signalling,12_000),entersState(this.connection,VoiceConnectionStatus.Connecting,12_000)])
       .catch(()=>{if(!this.closed&&this.connection.state.status===VoiceConnectionStatus.Disconnected)this.destroy();});
   });
  }
  showControlPanel(track){
   if(!this.panelFactory||!this.textChannel?.send)return Promise.resolve();
-  const channel=this.textChannel;
-  const payload=this.panelFactory(track,this);
-  this.panelUpdate=this.panelUpdate.catch(()=>{}).then(async()=>{
-   if(this.closed)return;
-   if(this.panelMessage&&this.panelChannelId===channel.id){
-    try{await this.panelMessage.edit(payload);return;}catch{this.panelMessage=null;}
+  // Batch rapid changes into the latest state instead of accumulating an
+  // unbounded chain of Discord message edits (and hitting REST rate limits).
+  this.panelDirty=true;
+  if(this.panelUpdate)return this.panelUpdate;
+  this.panelUpdate=(async()=>{
+   while(this.panelDirty&&!this.closed){
+    this.panelDirty=false;
+    const wait=Math.max(0,800-(Date.now()-this.panelLastEdit));
+    if(wait)await new Promise(resolve=>setTimeout(resolve,wait));
+    if(this.closed)return;
+    const channel=this.textChannel;
+    if(!channel?.send)continue;
+    const payload=this.panelFactory(this.current,this);
+    if(this.panelMessage&&this.panelChannelId===channel.id){
+     try{await this.panelMessage.edit(payload);this.panelLastEdit=Date.now();continue;}
+     catch{this.panelMessage=null;}
+    }
+    const message=await channel.send({...payload,allowedMentions:{parse:[]}});
+    if(this.closed)return;
+    this.panelMessage=message;this.panelChannelId=channel.id;this.panelLastEdit=Date.now();
    }
-   const message=await channel.send({...payload,allowedMentions:{parse:[]}});
-   if(this.closed)return;
-   this.panelMessage=message;this.panelChannelId=channel.id;
-  }).catch(err=>console.warn('[NEON PANEL] '+String(err?.message||err).slice(0,150)));
+  })().catch(err=>console.warn('[NEON PANEL] '+String(err?.message||err).slice(0,150)))
+    .finally(()=>{this.panelUpdate=null;if(this.panelDirty&&!this.closed)void this.showControlPanel(this.current);});
   return this.panelUpdate;
  }
  announce(message){if(this.textChannel?.send)void this.textChannel.send({content:String(message).slice(0,1700),allowedMentions:{parse:[]}}).catch(()=>{});}
  clearTimer(){clearTimeout(this.timer);this.timer=null;}
  setRetry(ms){clearTimeout(this.retry);this.retry=setTimeout(()=>{this.retry=null;void this.startNext();},ms);this.retry.unref?.();}
  cleanProcess(){clearTimeout(this.startupTimer);this.startupTimer=null;
+   clearInterval(this.watchdog);this.watchdog=null;
    if(this.netAbort){this.netAbort.abort();this.netAbort=null;}
    if(this.ytProcess){const yt=this.ytProcess;this.ytProcess=null;try{yt.kill('SIGKILL');}catch{}}
    if(this.process){const p=this.process;this.process=null;if(!p.killed)try{p.kill('SIGKILL');}catch{}}
@@ -215,8 +229,8 @@ class MusicSession{
   const args=['-nostdin','-hide_banner','-loglevel','error','-threads','2','-filter_threads','1',...input,'-vn','-sn','-dn',...(filter?['-af',filter]:[]),
     '-ac','2','-ar','48000','-f','s16le','pipe:1'];
   const child=spawn(ffmpegPath(),args,{stdio:[(viaNode||viaYouTube)?'pipe':'ignore','pipe','pipe'],windowsHide:true});
-  this.process=child;let bytes=0,stderr='';
-  child.stdout.on('data',b=>{bytes+=b.length;});
+  this.process=child;let bytes=0,stderr='',lastPcm=Date.now();
+  child.stdout.on('data',b=>{bytes+=b.length;lastPcm=Date.now();});
   child.stderr.on('data',b=>{stderr=(stderr+b.toString()).slice(-1300);});
   child.once('error',e=>{if(this.process===child)this.fail('FFmpeg: '+(e.code||e.message));});
   child.once('close',(code,signal)=>{
@@ -224,12 +238,27 @@ class MusicSession{
     if(code!==0||bytes===0)this.fail('FFmpeg: '+(errorText(stderr)||('brak danych audio (kod: '+(code===null?'brak':code)+', sygnał: '+(signal||'brak')+', bajty: '+bytes+')')));
     else this.retryCount=0;
   });
-  // Start Discord Voice immediately. Waiting for a PCM prebuffer introduced a
-  // startup regression on some slow/limited hosts (including yt-dlp on ALTARE).
-  // @discordjs/voice consumes decoded PCM with normal stream backpressure.
-  this.resource=createAudioResource(child.stdout,{inputType:StreamType.Raw,inlineVolume:true,metadata:track});
+  // Small configurable prebuffer for network jitter. Previous 1.8s prebuffer
+  // was too slow on ALTARE; default 280ms, capped at 800ms, disable with 0.
+  const requested=Number(process.env.NEONBEATS_PREBUFFER_MS);
+  const prebufferMs=process.env.NEONBEATS_PREBUFFER_MS!==undefined&&Number.isFinite(requested)
+   ?Math.max(0,Math.min(800,Math.round(requested))):280;
+  const buffered=track.kind!=='file'&&prebufferMs>0;
+  const inputPcm=buffered?bufferPcm(child.stdout,()=>{
+   if(!this.closed&&this.current===track&&this.process===child)this.player.play(this.resource);
+  },{milliseconds:prebufferMs}):child.stdout;
+  this.resource=createAudioResource(inputPcm,{inputType:StreamType.Raw,inlineVolume:true,metadata:track});
   this.resource.volume.setVolume(this.volume/100);
-  this.player.play(this.resource);
+  if(!buffered)this.player.play(this.resource);
+  // Recover from a stuck network/YouTube stream, not from ordinary pauses.
+  if(track.kind!=='file'){
+   this.watchdog=setInterval(()=>{
+    if(this.closed||this.current!==track||this.process!==child||!bytes)return;
+    if(this.player.state.status===AudioPlayerStatus.Playing&&Date.now()-lastPcm>30000)
+     this.fail('Strumień audio nie przesyła danych przez 30 sekund. Ponawiam połączenie.');
+   },5000);
+   this.watchdog.unref?.();
+  }
   if(viaNode)void this.feedNetwork(track,child);
   if(viaYouTube)this.feedYouTube(track,child);
   this.announce('🎶 NeonBeats teraz gra: '+clean(track.title)+' · DJ: '+this.dj);
