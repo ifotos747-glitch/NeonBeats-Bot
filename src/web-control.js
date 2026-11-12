@@ -1,16 +1,41 @@
 'use strict';
 // ALTARE sends only outgoing HTTPS requests to Cloudflare. No inbound port is exposed.
 const {classifyInput}=require('./media');
+const {spawn}=require('node:child_process');
+const {ytDlpPath,ytDlpEnvironment}=require('./youtube');
 const {normalizeYouTubeUrl,youtubeVideoTitle}=require('./youtube');
 const {loadYoutubePlaylist,isYouTubePlaylistUrl,validateRange}=require('./youtube-playlist');
 const radio=require('./global-radio'),store=require('./store');
 const {sessions}=require('./player');
 
-const VALID_ACTIONS=new Set(['pause','resume','skip','stop','shuffle','repeat','volume','play','playlist','radio','dj','clear']);
+const VALID_ACTIONS=new Set(['pause','resume','skip','stop','shuffle','repeat','volume','play','playlist','radio','dj','clear','search','save-list','load-list','delete-list']);
+const lastCurrent=new Map();
+async function searchMusic(query){
+ if(typeof query!=='string'||query.trim().length<2||query.length>80)throw Error('Wyszukiwanie: wpisz 2–80 znaków.');
+ const bin=ytDlpPath();if(!bin)throw Error('Brak yt-dlp — sprawdź /youtube status.');
+ return new Promise((resolve,reject)=>{
+  const args=['--ignore-config','--flat-playlist','--skip-download','--dump-json','--no-warnings','--no-progress','--socket-timeout','20','--js-runtimes','node:'+process.execPath,'--','ytsearch5:'+query.trim()];
+  let output='',settled=false;const child=spawn(bin,args,{env:ytDlpEnvironment(),stdio:['ignore','pipe','pipe'],windowsHide:true});
+  const timeout=setTimeout(()=>{child.kill('SIGKILL');finish(Error('Upłynął czas wyszukiwania YouTube.'));},45000);
+  function finish(error){if(settled)return;settled=true;clearTimeout(timeout);if(error)return reject(error);const items=[];
+   for(const line of output.split(/\r?\n/)){try{const v=JSON.parse(line),id=v.id;if(/^[a-zA-Z0-9_-]{11}$/.test(id))items.push({title:String(v.title||'Utwór').slice(0,110),url:'https://www.youtube.com/watch?v='+id});}catch{}}
+   resolve(JSON.stringify(items.slice(0,5)));}
+  child.stdout.on('data',b=>{output+=String(b);if(output.length>100000){child.kill('SIGKILL');finish(Error('Zbyt duża odpowiedź YouTube.'));}});
+  child.on('error',finish);child.on('close',()=>finish());
+ });
+}
 function safeSnapshot(client){
  return [...client.guilds.cache.values()].map(guild=>{
   const s=sessions.get(guild.id);
+  const current=s?.current;
+  if(current&&!s.closed){const key=current.kind+'|'+current.source;
+   if(lastCurrent.get(guild.id)!==key){lastCurrent.set(guild.id,key);try{store.recordPlay(guild.id,current);}catch(e){console.warn('Historia Web Control: '+e.message);}}
+  }else lastCurrent.delete(guild.id);
+  const saved=store.read(guild.id);
   return{id:guild.id,connected:!!s&&!s.closed,channelId:s?.channelId||null,
+   nowSource:current?.kind==='youtube-link'?current.source:null,
+   history:saved.history.slice(0,30),
+   savedPlaylists:Object.entries(saved.playlists).slice(0,25).map(([name,tracks])=>({name,count:Array.isArray(tracks)?tracks.length:0})),
    nowPlaying:s?.current?.title||'',queue:s?.queue?.slice(0,15).map(x=>x.title)||[],
    volume:s?.volume??85,repeat:s?.repeatMode||'off',dj:s?.dj||'off',
    playerStatus:s?.player?.state?.status||'idle'};
@@ -23,6 +48,27 @@ async function perform(client,cmd){
  if(!s||s.closed)throw Error('Bot nie jest połączony z kanałem głosowym. Uruchom muzykę w Discordzie.');
  const value=cmd.value===null?null:JSON.parse(cmd.value);
  switch(cmd.action){
+  case 'search':return searchMusic(value);
+  case 'save-list':{
+   if(typeof value!=='string'||value.trim().length<1||value.length>40)throw Error('Nazwa playlisty: 1–40 znaków.');
+   const count=store.savePlaylist(cmd.guild_id,value,s.queue);
+   return 'Zapisano playlistę '+value+' ('+count+' utworów).';
+  }
+  case 'load-list':{
+   if(typeof value!=='string'||value.length>40)throw Error('Nieprawidłowa nazwa.');
+   const tracks=store.loadPlaylist(cmd.guild_id,value);
+   const available=100-s.queue.length;
+   if(!available)throw Error('Kolejka pełna.');
+   const subset=tracks.slice(0,available);
+   if(!subset.length)throw Error('Zapisana playlista jest pusta.');
+   if(s.current?.continuous){s.queue.push(...subset);void s.showControlPanel(s.current);}
+   else s.enqueueMany(subset);
+   return 'Wczytano '+subset.length+' utworów z playlisty '+value+'.';
+  }
+  case 'delete-list':{
+   if(typeof value!=='string'||value.length>40)throw Error('Nieprawidłowa nazwa.');
+   store.deletePlaylist(cmd.guild_id,value);return 'Usunięto playlistę '+value+'.';
+  }
   case 'pause':if(!s.pause())throw Error('Nie można wstrzymać odtwarzania.');return 'Wstrzymano odtwarzanie.';
   case 'resume':if(!s.resume())throw Error('Nie można wznowić odtwarzania.');return 'Wznowiono odtwarzanie.';
   case 'skip':if(!s.skip())throw Error('Nie ma utworu do pominięcia.');return 'Pominięto utwór.';
@@ -89,7 +135,7 @@ function startWebControl(client,{fetchImpl=fetch,intervalMs=3000}={}){
     // Playlist metadata may take two minutes. Keep heartbeat/snapshots alive while it loads.
     jobChain=jobChain.catch(()=>{}).then(async()=>{
      let status='done',result='';
-     try{result=await perform(client,command);}catch(e){status='failed';result=String(e.message||e).slice(0,250);}
+     try{result=await perform(client,command);}catch(e){status='failed';result=String(e.message||e).slice(0,2000);}
      try{await request('/api/bridge/result',{id:command.id,status,result});}
      catch(e){console.warn('🌐 Web Control: nie zapisano wyniku '+String(e.message));}
     });
