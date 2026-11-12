@@ -16,7 +16,7 @@ function read(id){
  if(Array.isArray(data.favorites))d.favorites=data.favorites.filter(x=>x&&x.kind==='youtube-link'&&typeof x.source==='string'&&typeof x.title==='string').slice(0,250);
  if(data.stats&&typeof data.stats==='object')for(const k of ['total','youtube','radio','other'])d.stats[k]=Math.max(0,Math.floor(Number(data.stats[k])||0));
  if(Object.hasOwn(PRESETS,data.dj))d.dj=data.dj;
- if(data.premium&&typeof data.premium==='object'&&Number.isFinite(data.premium.expiresAt))d.premium={expiresAt:data.premium.expiresAt,updatedBy:String(data.premium.updatedBy||''),updatedAt:Number(data.premium.updatedAt)||0};
+ if(data.premium&&typeof data.premium==='object'&&Number.isFinite(data.premium.expiresAt))d.premium={expiresAt:data.premium.expiresAt,updatedBy:String(data.premium.updatedBy||''),updatedAt:Number(data.premium.updatedAt)||0,createdAt:Number(data.premium.createdAt)||Number(data.premium.updatedAt)||0,history:Array.isArray(data.premium.history)?data.premium.history.filter(x=>x&&['grant','revoke'].includes(x.action)&&Number.isFinite(x.at)).slice(-100).map(x=>({action:x.action,at:x.at,by:String(x.by||''),days:Number(x.days)||0})):[]};
  if(data.alwaysOn&&['radio','autodj','silent'].includes(data.alwaysOn.mode))d.alwaysOn=data.alwaysOn;
  return d;
 }
