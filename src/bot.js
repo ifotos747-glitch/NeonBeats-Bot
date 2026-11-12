@@ -147,8 +147,7 @@ async function slash(i){
    '\nTolerancja krótkich przerw: '+MAX_MISSED_FRAMES*20+' ms'+
    (s?.radioStats?'\n📻 Radio live: bufor '+s.radioStats.bufferedMs+' ms (maks. '+s.radioStats.peakBufferedMs+' ms)'+
     (s.radioOpus?
-     '\n📦 Opus: odebrane pakiety '+s.radioStats.receivedPackets+' | wysłane do odtwarzacza '+s.radioStats.playedPackets+
-     ' | odczyty bez pakietu: '+s.radioStats.underruns:
+     '\n📦 Opus: pobrano Ogg '+s.radioStats.receivedBytes+' B | bufor szacunkowy (128 kb/s)':
      '\n📉 Odczyty bez PCM: '+s.radioStats.underruns+' | min. ciszy przy niedoborze: '+s.radioStats.silenceMs+' ms'):'')+
    (health?'\n📡 MP3 HTTP: '+health.httpBytes+' B | porcje: '+health.httpChunks+
     '\nPrzerwy odczytu >0,5s: '+health.readGaps500+' | >2s: '+health.readGaps2000+' | najdłuższa: '+health.maxReadGapMs+' ms'+
