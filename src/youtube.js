@@ -3,7 +3,7 @@ const fs=require('node:fs'),fsp=require('node:fs/promises'),path=require('node:p
 const {spawn,execFile}=require('node:child_process');
 const {Readable,Transform}=require('node:stream');
 const {pipeline}=require('node:stream/promises');
-const {ROOT}=require('./config');
+const {ROOT,DATA}=require('./config');
 const {validatePublicUrl}=require('./media');
 
 const RELEASE='2026.10.26'; // Pinned verified first install; /youtube aktualizuj upgrades installed binary.
@@ -24,13 +24,30 @@ function normalizeYouTubeUrl(raw){
  if(!VIDEO_ID.test(id||''))throw Error('Podaj link pojedynczego filmu YouTube, nie playlistę lub kanał.');
  return 'https://www.youtube.com/watch?v='+id;
 }
-function ytDlpEnvironment(){
- const dir=String(process.env.YTDLP_TMPDIR||'').trim();
- if(!dir)return process.env;
+function ytDlpTempDirectory(){
+ const configured=String(process.env.YTDLP_TMPDIR||'').trim();
+ if(configured==='system')return null; // Explicit opt-out, use the host's own TMPDIR.
+ const dir=configured||path.join(DATA,'yt-dlp-temp');
  if(!path.isAbsolute(dir))throw Error('YTDLP_TMPDIR musi być pełną ścieżką katalogu na hostingu.');
- if(!fs.existsSync(dir)||!fs.statSync(dir).isDirectory())throw Error('Katalog YTDLP_TMPDIR nie istnieje.');
+ if(!configured)fs.mkdirSync(dir,{recursive:true,mode:0o700});
+ if(!fs.existsSync(dir)||!fs.statSync(dir).isDirectory())throw Error('Katalog YTDLP_TMPDIR nie istnieje: '+dir);
  fs.accessSync(dir,fs.constants.W_OK|fs.constants.X_OK);
+ return dir;
+}
+function ytDlpEnvironment(){
+ const dir=ytDlpTempDirectory();
+ if(!dir)return process.env;
+ // PyInstaller reads TMPDIR when unpacking one-file binaries.
  return {...process.env,TMPDIR:dir,TEMP:dir,TMP:dir};
+}
+function ytDlpTempStatus(){
+ try{
+  const dir=ytDlpTempDirectory();
+  const location=dir||process.env.TMPDIR||'/tmp';
+  const stat=fs.statfsSync(location);
+  const availableBytes=Number(stat.bavail)*Number(stat.bsize);
+  return {path:location,availableMB:Math.floor(availableBytes/1048576),lowSpace:availableBytes<150*1048576};
+ }catch(error){return {path:'nieznana',availableMB:null,error:String(error.message||error).slice(0,160)};}
 }
 function isPyInstallerError(message){
  return /(?:\[PYI-\d+\s*:\s*ERROR\]|Failed to extract (?:entry|Cryptodome)|decompression resulted in return code -1)/i.test(String(message||''));
@@ -149,4 +166,4 @@ function diagnoseYouTube(url,{timeoutMs=45000}={}){
   timer.unref?.();
  });
 }
-module.exports={RELEASE,LOCAL,normalizeYouTubeUrl,ytDlpPath,ytDlpEnvironment,isPyInstallerError,selectAudioProfile,youtubeArgs,cleanYtdlpError,installYtDlp,updateYtDlp,ytDlpVersion,spawnYouTube,diagnoseYouTube};
+module.exports={RELEASE,LOCAL,normalizeYouTubeUrl,ytDlpPath,ytDlpTempDirectory,ytDlpTempStatus,ytDlpEnvironment,isPyInstallerError,selectAudioProfile,youtubeArgs,cleanYtdlpError,installYtDlp,updateYtDlp,ytDlpVersion,spawnYouTube,diagnoseYouTube};
