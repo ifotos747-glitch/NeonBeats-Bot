@@ -66,3 +66,34 @@ test('metadata is loaded without media downloads',async()=>{
   assert.equal(r.examined,1);
  }finally{if(old===undefined)delete process.env.YTDLP_PATH;else process.env.YTDLP_PATH=old;}
 });
+
+test('playlist yt-dlp uses configured temporary directory',async()=>{
+ const fs=require('node:fs'),os=require('node:os'),path=require('node:path');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'neon-playlist-'));
+ const previous={YTDLP_PATH:process.env.YTDLP_PATH,YTDLP_TMPDIR:process.env.YTDLP_TMPDIR};
+ process.env.YTDLP_PATH='/fake/yt-dlp';process.env.YTDLP_TMPDIR=dir;
+ try{
+  const spawnMock=(_bin,_args,options)=>{
+   assert.equal(options.env.TMPDIR,dir);
+   const p=new EventEmitter();p.stdout=new PassThrough();p.stderr=new PassThrough();p.kill=()=>true;
+   process.nextTick(()=>{p.stdout.end(JSON.stringify({id:'dQw4w9WgXcQ',title:'Remix'})+'\\n');p.stderr.end();p.emit('close',0,null);});
+   return p;
+  };
+  const result=await loadYoutubePlaylist('https://www.youtube.com/playlist?list=PL1234567890',{spawnProcess:spawnMock});
+  assert.equal(result.tracks.length,1);
+ }finally{
+  for(const [k,v] of Object.entries(previous)){if(v===undefined)delete process.env[k];else process.env[k]=v;}
+  fs.rmSync(dir,{recursive:true,force:true});
+ }
+});
+test('playlist reports PYI library extraction failures instead of no public videos',async()=>{
+ const prev=process.env.YTDLP_PATH;process.env.YTDLP_PATH='/fake/yt-dlp';
+ try{
+  const spawnMock=()=>{
+   const p=new EventEmitter();p.stdout=new PassThrough();p.stderr=new PassThrough();p.kill=()=>true;
+   process.nextTick(()=>{p.stdout.end();p.stderr.end('[PYI-99:ERROR] Failed to extract Cryptodome/Cipher/_ARC4.abi3.so');p.emit('close',255,null);});
+   return p;
+  };
+  await assert.rejects(loadYoutubePlaylist('https://www.youtube.com/playlist?list=PL1234567890',{spawnProcess:spawnMock}),/Błąd uruchomienia yt-dlp/);
+ }finally{if(prev===undefined)delete process.env.YTDLP_PATH;else process.env.YTDLP_PATH=prev;}
+});
