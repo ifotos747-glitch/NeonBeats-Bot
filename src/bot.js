@@ -5,7 +5,7 @@ const {ffmpegPath,BOT_NAME,VERSION}=require('./config');
 const {musicFiles,localFile,classifyInput}=require('./media');
 const store=require('./store'),radio=require('./global-radio'),{sessions,ensureSession}=require('./player');
 const {diagnoseStream,diagnoseLocalFFmpeg,diagnoseHttp,formatDiagnostic}=require('./diagnostics');
-const {normalizeYouTubeUrl,ytDlpPath,ytDlpTempStatus,installYtDlp,updateYtDlp,ytDlpVersion,diagnoseYouTube}=require('./youtube');
+const {normalizeYouTubeUrl,youtubeVideoTitle,ytDlpPath,ytDlpTempStatus,installYtDlp,updateYtDlp,ytDlpVersion,diagnoseYouTube}=require('./youtube');
 const {MAX_PLAYLIST_ITEMS,isYouTubePlaylistUrl,loadYoutubePlaylist}=require('./youtube-playlist');
 const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildVoiceStates]});
 const hidden={flags:MessageFlags.Ephemeral};
@@ -167,7 +167,12 @@ async function slash(i){
    const url=normalizeYouTubeUrl(x.source);
    if(!ytDlpPath())return i.reply({content:'⚠️ YouTube wymaga konfiguracji. Administrator: /youtube install.',...hidden});
    x.source=url;
-   x.title='YouTube • '+new URL(url).searchParams.get('v');
+   // A quick public metadata lookup; do not run another PyInstaller yt-dlp
+   // process or block playback if YouTube does not expose the title.
+   await i.deferReply(hidden);
+   x.title=await youtubeVideoTitle(url)||'YouTube • '+new URL(url).searchParams.get('v');
+   join(i).enqueue(x);
+   return i.editReply({content:'✅ Dodano: '+clean(x.title)});
   }
   if(x.kind==='stream')requireAdmin(i);
   join(i).enqueue(x);return i.reply({content:'✅ Dodano: '+clean(x.title)});
