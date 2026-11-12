@@ -9,6 +9,7 @@ const {normalizeYouTubeUrl,youtubeVideoTitle,ytDlpPath,ytDlpTempStatus,installYt
 const {MAX_PLAYLIST_ITEMS,isYouTubePlaylistUrl,loadYoutubePlaylist}=require('./youtube-playlist');
 const {startWebControl}=require('./web-control');
 const premium=require('./premium');
+const {performanceSnapshot,performanceText}=require('./performance');
 const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildVoiceStates]});
 const hidden={flags:MessageFlags.Ephemeral};
 function clean(x){return String(x||'').replace(/[\r\n*@<>]/g,' ').slice(0,140);}
@@ -145,6 +146,7 @@ async function slash(i){
    '\nTolerancja krótkich przerw: '+MAX_MISSED_FRAMES*20+' ms'+
    (s?.radioStats?'\n📻 Radio live: bufor '+s.radioStats.bufferedMs+' ms (maks. '+s.radioStats.peakBufferedMs+' ms)'+
     '\n📉 Niedobory audio: '+s.radioStats.underruns+' | cisza ochronna: '+s.radioStats.silenceMs+' ms':'')+
+   '\n'+performanceText(performanceSnapshot(s))+
    (s?.lastError?'\nOstatni błąd: '+clean(s.lastError):''))]});
  }
  if(n==='files')return i.reply({content:'🎵 Pliki: '+(musicFiles().map(clean).join(', ')||'Brak'),...hidden});
