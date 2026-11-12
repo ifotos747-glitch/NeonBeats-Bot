@@ -1,62 +1,44 @@
 'use strict';
-const {Readable}=require('node:stream');
-const prism=require('prism-media');
+const {PassThrough}=require('node:stream');
 
-// FFmpeg emits Ogg/Opus with an explicit 20 ms frame duration; demuxed
-// packets can go directly to Discord Voice without any JS Opus re-encoding.
-// Buffer Opus packets rather than raw bytes, so starts only after whole frames.
-const FRAME_MS=20;
+// FFmpeg produces Ogg/Opus at 128 kbit/s (about 16 KB/s).
+// Buffer the container byte stream; @discordjs/voice demuxes Opus natively.
+// No direct prism-media dependency and no JavaScript Opus re-encoding.
+const OPUS_ESTIMATED_BYTES_PER_SECOND=16000;
 function bufferOpusRadio(source,onReady,{milliseconds=2000,maxMs=6000}={}){
- const startupFrames=Math.max(1,Math.min(150,Math.ceil(Number(milliseconds||0)/FRAME_MS)));
- const maxFrames=Math.max(startupFrames+25,Math.min(500,Math.ceil(Number(maxMs||6000)/FRAME_MS)));
- const demux=new prism.opus.OggDemuxer();
- const stats={bufferedMs:0,peakBufferedMs:0,underruns:0,receivedPackets:0,playedPackets:0};
- const packets=[];
- let started=false,waiting=false,ended=false,paused=false,closed=false,underflow=false;
- const out=new Readable({objectMode:true,highWaterMark:4,read(){pump();}});
- function report(){stats.bufferedMs=packets.length*FRAME_MS;stats.peakBufferedMs=Math.max(stats.peakBufferedMs,stats.bufferedMs);}
- function resume(){
-  if(paused&&!ended&&packets.length<maxFrames/2){paused=false;demux.resume();}
- }
- function pump(){
-  if(closed)return;
-  if(!started){waiting=true;return;}
-  if(packets.length){
-   waiting=false;underflow=false;
-   out.push(packets.shift());
-   stats.playedPackets++;report();resume();
-  }else if(ended){
-   out.push(null);cleanup();
-  }else{
-   waiting=true;
-   if(!underflow){underflow=true;stats.underruns++;}
-  }
- }
+ const startMs=Math.max(0,Math.min(3000,Number(milliseconds)||0));
+ const capMs=Math.max(startMs+500,Math.min(10000,Number(maxMs)||6000));
+ const threshold=Math.round(OPUS_ESTIMATED_BYTES_PER_SECOND*startMs/1000);
+ const capBytes=Math.round(OPUS_ESTIMATED_BYTES_PER_SECOND*capMs/1000);
+ const out=new PassThrough({highWaterMark:capBytes});
+ const stats={receivedBytes:0,peakBufferedMs:0};
+ Object.defineProperty(stats,'bufferedMs',{enumerable:true,get(){
+  return Math.round(out.readableLength*1000/OPUS_ESTIMATED_BYTES_PER_SECOND);
+ }});
+ let started=false,paused=false,closed=false;
  function start(){
-  if(closed||started)return;
-  started=true;
-  onReady();
-  if(waiting)pump();
+  if(started||closed)return;
+  started=true;onReady();
  }
- function onPacket(packet){
-  if(closed||!packet?.length)return;
-  packets.push(packet);stats.receivedPackets++;report();
-  if(!started&&packets.length>=startupFrames)start();
-  if(started&&waiting)pump();
-  if(packets.length>=maxFrames&&!paused){paused=true;demux.pause();}
+ function onData(chunk){
+  if(closed||!chunk?.length)return;
+  stats.receivedBytes+=chunk.length;
+  if(!out.write(chunk)&&!paused){paused=true;source.pause();}
+  stats.peakBufferedMs=Math.max(stats.peakBufferedMs,stats.bufferedMs);
+  if(stats.receivedBytes>=threshold)start();
  }
- function onEnd(){ended=true;if(!started)start();if(waiting)pump();}
- function onError(error){if(!closed)out.destroy(error);}
+ function onDrain(){if(paused&&!closed){paused=false;source.resume();}}
+ function onEnd(){if(closed)return;out.end();start();}
+ function onError(err){if(closed)return;start();out.destroy(err);}
  function cleanup(){
   if(closed)return;
-  closed=true;source.unpipe(demux);
-  demux.off('data',onPacket);demux.off('end',onEnd);demux.off('error',onError);
-  packets.length=0;report();
-  demux.destroy();
+  closed=true;source.off('data',onData);source.off('end',onEnd);source.off('error',onError);
+  out.off('drain',onDrain);
+  if(paused)source.resume();
  }
- demux.on('data',onPacket);demux.once('end',onEnd);demux.once('error',onError);
- out.once('close',cleanup);
- source.pipe(demux);
+ source.on('data',onData);source.once('end',onEnd);source.once('error',onError);
+ out.on('drain',onDrain);out.once('close',cleanup);
+ if(startMs===0)process.nextTick(start);
  return{stream:out,stats,stop:()=>{cleanup();out.destroy();}};
 }
-module.exports={bufferOpusRadio,FRAME_MS};
+module.exports={bufferOpusRadio,OPUS_ESTIMATED_BYTES_PER_SECOND};
