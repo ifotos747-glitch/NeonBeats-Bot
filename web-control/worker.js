@@ -54,7 +54,7 @@ async function handle(request,env){
   if(!env.DISCORD_CLIENT_ID||!env.DISCORD_CLIENT_SECRET||!appOrigin(env))return fail('Nie skonfigurowano OAuth Discord.',503);
   const state=crypto.randomUUID();
   await env.DB.prepare('INSERT INTO oauth_states(state,created_at) VALUES(?,?)').bind(state,now()).run();
-  const query=new URLSearchParams({client_id:env.DISCORD_CLIENT_ID,redirect_uri:appOrigin(env)+'/auth/callback',response_type:'code',scope:'identify guilds',state,prompt:'none'});
+  const query=new URLSearchParams({client_id:env.DISCORD_CLIENT_ID,redirect_uri:appOrigin(env)+'/auth/callback',response_type:'code',scope:'identify guilds',state});
   return Response.redirect('https://discord.com/oauth2/authorize?'+query.toString(),302);
  }
  if(pathname==='/auth/callback'&&request.method==='GET'){
