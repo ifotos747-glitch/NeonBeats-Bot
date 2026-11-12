@@ -115,3 +115,9 @@ Naprawa przerw dźwięku przede wszystkim podczas radia online (Icecast / Shoutc
 - Komendy /radio, YouTube, Premium, zapisane playlisty oraz Web Control pozostają dostępne; Cloudflare nie wymaga ponownego wdrożenia.
 
 **Aktualizacja ALTARE:** podmień `src/player.js`, `src/bot.js`, `package.json`, `index.js`. Pozostaw `.env`, `data/`, `music/`, `bin/`; jeśli wcześniejsze wydanie FASTSTREAM nie było zainstalowane w całości, pobierz cały aktualny katalog `src/` poza Twoimi danymi prywatnymi. Restart po zmianach. W `.env` możesz dodać `NEONBEATS_RADIO_PREBUFFER_MS=1000`; na szczególnie niestabilnym łączu spróbuj `1500`. Większa wartość wydłuża start, ale nie naprawi przeciążonego CPU ALTARE, złego adresu strumienia ani awarii rozgłośni.
+
+## NeonBeats 3.7.2 — RADIO COMPATIBILITY
+
+Dla stacji MP3 Icecast/Shoutcast, np. `http://4stream.pl:18272/stream` (Radio Club Dj), poprzednia komenda `/radio diagnoza` otwierała URL bezpośrednio w FFmpeg. Na niektórych hostingach ten sposób powoduje `SIGSEGV` już po kilkunastu milisekundach, mimo że HTTP Node.js zwraca poprawne `200 audio/mpeg`, a sam lokalny dekoder działa. Rzeczywisty odtwarzacz NeonBeats już wcześniej używał stabilniejszej ścieżki Node.js → FFmpeg `pipe:0`. Teraz diagnostyka korzysta z **tej samej ścieżki**, by diagnoza była miarodajna. Test jest ograniczony do trzech sekund przekodowanego audio i maksymalnie osiemnastu sekund oczekiwania. Błędy połączenia są raportowane bez ujawniania wrażliwych URL-i i tokenów.
+
+**Wdrożenie ALTARE:** zaktualizuj `src/diagnostics.js`, `package.json` i `index.js` (jeżeli jesteś już na 3.7.1). Zrestartuj bota i ponownie uruchom `/radio diagnoza nazwa:Radio Club Dj`. Strona Cloudflare i D1 nie wymagają zmian. Zielony wynik potwierdzi, że Node→FFmpeg odczytuje i dekoduje dane; zacinanie w trakcie nadawania może nadal wynikać z łącza, serwera stacji, procesora hostingu lub Discord Voice — w tym wypadku sprawdź logi ALTARE podczas zacięcia.
