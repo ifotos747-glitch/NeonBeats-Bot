@@ -85,7 +85,7 @@ async function handle(request,env){
   const data=await request.json();
   if(!Array.isArray(data.guilds)||data.guilds.length>300)return fail('Nieprawidłowe dane bota.');
   const batch=data.guilds.filter(g=>validGuild(g.id)).map(g=>env.DB.prepare(
-   'INSERT INTO snapshots(guild_id,payload,updated_at) VALUES(?,?,?) ON CONFLICT(guild_id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at'
+   'INSERT INTO snapshots(guild_id,payload,updated_at) VALUES(?,?,?) ON CONFLICT(guild_id) DO UPDATE SET payload=excluded.payload,updated_at=excluded.updated_at WHERE snapshots.payload<>excluded.payload OR snapshots.updated_at<excluded.updated_at-15000'
   ).bind(g.id,JSON.stringify({connected:!!g.connected,channelId:g.channelId||null,nowPlaying:String(g.nowPlaying||'').slice(0,140),queue:(g.queue||[]).slice(0,15).map(x=>String(x).slice(0,140)),volume:g.volume??85,repeat:g.repeat||'off',dj:g.dj||'off',playerStatus:g.playerStatus||'idle'}),now()));
   for(let i=0;i<batch.length;i+=50)await env.DB.batch(batch.slice(i,i+50));
   const cmds=await env.DB.prepare("UPDATE commands SET status='running' WHERE id IN (SELECT id FROM commands WHERE status='pending' ORDER BY created_at ASC LIMIT 15) RETURNING id,guild_id,action,value").all();
