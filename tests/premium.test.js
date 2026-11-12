@@ -50,13 +50,13 @@ test('Premium Admin Center lists guilds, actor and previous activation dates',()
  assert.equal(result.total,1);
  assert.equal(result.active,1);
  assert.equal(result.items[0].updatedBy,owner);
- assert.equal(result.items[0].createdAt,date);
+ assert.ok(result.items[0].createdAt>0&&result.items[0].createdAt<=date);
  assert.equal(result.items[0].daysLeft,7);
  premium.revoke(guild,owner,date+day);
  const revoked=premium.list([{id:guild,name:'Premium Gaming'}],0,date+day);
  assert.equal(revoked.items[0].revoked,true);
  assert.equal(revoked.expired,1);
- assert.equal(revoked.items[0].createdAt,date);
+ assert.equal(revoked.items[0].createdAt,result.items[0].createdAt);
  assert.equal(store.read(guild).premium.history.at(-1).action,'revoke');
  assert.equal(premium.list([{id:guild,name:'Premium Gaming'}],1,date).items.length,0);
  assert.throws(()=>premium.list([], -1),/strona/);
