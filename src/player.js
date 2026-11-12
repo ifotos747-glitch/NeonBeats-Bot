@@ -154,8 +154,7 @@ class MusicSession{
    // The station must reconnect even if FFmpeg exits cleanly.
    if(previous.continuous){
     if(this.playingSince&&Date.now()-this.playingSince>90000)this.retryCount=0;
-    if(item?.continuous&&this.playingSince&&Date.now()-this.playingSince>90000)this.retryCount=0;
-  this.retryCount=Math.min(6,this.retryCount+1);
+    this.retryCount=Math.min(6,this.retryCount+1);
     this.blockUntil=Date.now()+Math.min(45000,1500*2**Math.min(4,this.retryCount));
    }else{
     const next=retryRadioTrack(previous);
@@ -186,6 +185,7 @@ class MusicSession{
   }
   this.skipRequested=true;
   this.cleanProcess();
+  if(item?.continuous&&this.playingSince&&Date.now()-this.playingSince>90000)this.retryCount=0;
   this.retryCount=Math.min(6,this.retryCount+1);
   const delay=Math.min(60_000,3000*2**Math.min(4,this.retryCount));
   if(this.current?.continuous)this.blockUntil=Date.now()+delay;
