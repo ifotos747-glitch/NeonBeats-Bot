@@ -2,7 +2,7 @@
 const fs=require('node:fs'),path=require('node:path');
 const {spawn}=require('node:child_process');
 const {pipeHttpAudio}=require('./network');
-const {spawnYouTube,cleanYtdlpError}=require('./youtube');
+const {spawnYouTube,cleanYtdlpError,selectAudioProfile}=require('./youtube');
 const {joinVoiceChannel,createAudioPlayer,createAudioResource,AudioPlayerStatus,VoiceConnectionStatus,NoSubscriberBehavior,StreamType,entersState}=require('@discordjs/voice');
 const {MUSIC,ffmpegPath,IDLE_MINUTES}=require('./config');
 const {musicFiles}=require('./media'),{filterFor}=require('./effects'),store=require('./store'),radio=require('./global-radio');
@@ -87,9 +87,9 @@ class MusicSession{
   const item=this.current;
   if(shouldRetryYouTube(item,message)){
    const attempt=(item.compatRetries||0)+1;
-   this.queue.push({...item,compatRetries:attempt});
-   this.announce('🔄 Ponawiam próbę YouTube '+attempt+'/2: '+clean(item.title));
-   if(this.queue.length===1)this.blockUntil=Date.now()+attempt*2000;
+   this.queue.unshift({...item,compatRetries:attempt});
+   this.announce('🔄 YouTube: ponawiam '+attempt+'/2 z alternatywnym formatem audio: '+clean(item.title));
+   this.blockUntil=Date.now()+attempt*2000;
   }
   this.cleanProcess();
   this.retryCount=Math.min(6,this.retryCount+1);
@@ -139,7 +139,7 @@ class MusicSession{
  }
  feedYouTube(track,child){
   let yt;
-  try{yt=spawnYouTube(track.source);}
+  try{yt=spawnYouTube(track.source,{profile:selectAudioProfile(track.compatRetries||0)});}
   catch(err){this.fail('YouTube: '+errorText(err.message));return;}
   this.ytProcess=yt;
   let transferred=0,stderr='';
