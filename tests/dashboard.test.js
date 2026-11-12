@@ -13,8 +13,8 @@ test('Web Control dashboard inline JavaScript parses cleanly',()=>{
  for(const [,script] of scripts)new vm.Script(script,{filename:'dashboard.html'});
 });
 
-test('3.2 dashboard retains music, playlist, history, and radio artwork controls',()=>{
- for(const id of ['loginPanel','controlPanel','guild','cover','radioCover','searchResults','historyList','savedLists','addPlaylist','saveListButton','logout']){
+test('3.4 dashboard retains music, playlist, history, radio and visualizer controls',()=>{
+ for(const id of ['loginPanel','controlPanel','guild','cover','radioCover','searchResults','historyList','savedLists','addPlaylist','saveListButton','logout','visualizer','vizBars','vizStatus','radioSearchQuery','radioSearchButton','radioSearchResults','djDescription']){
   assert.ok(html.includes('id="'+id+'"'),'Missing required Web Control element: '+id);
  }
 });
