@@ -18,14 +18,16 @@ function grant(guildId,days,actorId,at=Date.now()){
  const d=store.read(guildId);
  const base=Math.max(at,Number(d.premium?.expiresAt)||0);
  const expiresAt=base+days*DAY;
- d.premium={expiresAt,updatedBy:actorId,updatedAt:at};
+ d.premium={expiresAt,updatedBy:actorId,updatedAt:at,createdAt:d.premium?.createdAt||d.premium?.updatedAt||at,
+  history:[...(d.premium?.history||[]),{action:'grant',at,by:actorId,days}].slice(-100)};
  store.write(guildId,d);
  return status(guildId,at);
 }
 function revoke(guildId,actorId,at=Date.now()){
  if(!/^[0-9]{15,24}$/.test(String(actorId||'')))throw Error('Premium: brak identyfikatora administratora.');
  const d=store.read(guildId);
- d.premium={expiresAt:0,updatedBy:actorId,updatedAt:at};
+ d.premium={expiresAt:0,updatedBy:actorId,updatedAt:at,createdAt:d.premium?.createdAt||d.premium?.updatedAt||at,
+  history:[...(d.premium?.history||[]),{action:'revoke',at,by:actorId,days:0}].slice(-100)};
  store.write(guildId,d);return status(guildId,at);
 }
 function list(guilds,page=0,at=Date.now()){
@@ -37,7 +39,7 @@ function list(guilds,page=0,at=Date.now()){
   const state=status(g.id,at);
   return {id:g.id,name:String(g.name||g.id).slice(0,85),active:state.active,
    expiresAt:state.expiresAt,daysLeft:state.daysLeft,
-   updatedAt:entry.updatedAt,updatedBy:entry.updatedBy||null,
+   updatedAt:entry.updatedAt,createdAt:entry.createdAt||entry.updatedAt,updatedBy:entry.updatedBy||null,
    revoked:entry.expiresAt===0};
  }).filter(Boolean).sort((a,b)=>b.updatedAt-a.updatedAt);
  const pageSize=10,total=items.length,pages=Math.max(1,Math.ceil(total/pageSize));
