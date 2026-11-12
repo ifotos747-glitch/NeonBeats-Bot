@@ -5,10 +5,10 @@ const {spawn}=require('node:child_process');
 const {ytDlpPath,ytDlpEnvironment}=require('./youtube');
 const {normalizeYouTubeUrl,youtubeVideoTitle}=require('./youtube');
 const {loadYoutubePlaylist,isYouTubePlaylistUrl,validateRange}=require('./youtube-playlist');
-const radio=require('./global-radio'),store=require('./store');
+const radio=require('./global-radio'),store=require('./store'),premium=require('./premium');
 const {sessions}=require('./player');
 
-const VALID_ACTIONS=new Set(['pause','resume','skip','stop','shuffle','repeat','volume','play','playlist','radio','dj','clear','search','save-list','load-list','delete-list','queue-move','queue-remove','favorite-add','favorite-remove','radio-search']);
+const VALID_ACTIONS=new Set(['pause','resume','skip','stop','shuffle','repeat','volume','play','playlist','radio','dj','clear','search','save-list','load-list','delete-list','queue-move','queue-remove','favorite-add','favorite-remove','radio-search','premium-grant','premium-revoke','premium-status']);
 const lastCurrent=new Map();
 async function searchMusic(query){
  if(typeof query!=='string'||query.trim().length<2||query.length>80)throw Error('Wyszukiwanie: wpisz 2–80 znaków.');
@@ -40,6 +40,7 @@ function safeSnapshot(client){
    favorites:saved.favorites.slice(0,100),stats:saved.stats,
    queueTotal:s?.queue?.length||0,
    radioCount:radio.list().length,
+   premium:premium.status(guild.id),
    nowPlaying:s?.current?.title||'',queue:s?.queue?.slice(0,15).map(x=>x.title)||[],
    volume:s?.volume??85,repeat:s?.repeatMode||'off',dj:s?.dj||'off',
    playerStatus:s?.player?.state?.status||'idle'};
@@ -48,9 +49,12 @@ function safeSnapshot(client){
 async function perform(client,cmd){
  if(!/^\d{15,24}$/.test(String(cmd.guild_id||''))||!VALID_ACTIONS.has(cmd.action))throw Error('Niepoprawne polecenie.');
  if(!client.guilds.cache.has(cmd.guild_id))throw Error('Bot nie jest członkiem wybranego serwera.');
+ const value=cmd.value===null?null:JSON.parse(cmd.value);
+ if(cmd.action==='premium-grant'){premium.requireOwner(cmd.user_id);const state=premium.grant(cmd.guild_id,value,cmd.user_id);return 'Premium aktywne do '+new Date(state.expiresAt).toISOString().slice(0,10)+' ('+state.daysLeft+' dni).';}
+ if(cmd.action==='premium-revoke'){premium.requireOwner(cmd.user_id);premium.revoke(cmd.guild_id,cmd.user_id);return 'Premium wyłączone na tym serwerze.';}
+ if(cmd.action==='premium-status'){const state=premium.status(cmd.guild_id);return state.active?'Premium aktywne do '+new Date(state.expiresAt).toISOString().slice(0,10)+'.':'Premium nieaktywne.';}
  const s=sessions.get(cmd.guild_id);
  if(!s||s.closed)throw Error('Bot nie jest połączony z kanałem głosowym. Uruchom muzykę w Discordzie.');
- const value=cmd.value===null?null:JSON.parse(cmd.value);
  switch(cmd.action){
   case 'queue-move':{
    if(!value||!Number.isInteger(value.from)||!Number.isInteger(value.to)||value.from<0||value.to<0||value.from>=s.queue.length||value.to>=s.queue.length)throw Error('Nieprawidłowe pozycje kolejki.');
@@ -105,7 +109,8 @@ async function perform(client,cmd){
   case 'clear':s.queue=[];void s.showControlPanel(s.current);return 'Wyczyszczono oczekujące utwory.';
   case 'volume':if(!Number.isInteger(value)||value<0||value>150)throw Error('Głośność 0–150%.');s.setVolume(value);return 'Głośność '+value+'%.';
   case 'dj':
-   if(!['off','bass','nightcore','slowed','8d','echo','club','deep','vocal','soft'].includes(value))throw Error('Niepoprawny preset DJ.');
+   if(!['off','bass','nightcore','slowed','8d','echo','club','deep','vocal','soft','stadium','lofi','crystal'].includes(value))throw Error('Niepoprawny preset DJ.');
+   if(premium.PREMIUM_DJ.has(value))premium.requirePremium(cmd.guild_id);
    store.setDJ(cmd.guild_id,value);s.setDJ(value);return 'Efekt DJ: '+value+'.';
   case 'play':{
    if(typeof value!=='string'||value.length>500)throw Error('Nieprawidłowy link YouTube.');
