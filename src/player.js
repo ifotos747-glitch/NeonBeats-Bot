@@ -9,6 +9,25 @@ const {joinVoiceChannel,createAudioPlayer,createAudioResource,AudioPlayerStatus,
 const {MUSIC,ffmpegPath,IDLE_MINUTES}=require('./config');
 const {musicFiles}=require('./media'),{filterFor}=require('./effects'),store=require('./store'),radio=require('./global-radio');
 const sessions=new Map(),MAX_QUEUE=100;
+// Discord Voice normally stops after five missed 20ms packets (~100ms).
+// Live HTTP radio can legitimately stall for a fraction of a second.
+const MAX_MISSED_FRAMES=100; // 2 seconds of recoverable silence, without tearing down voice.
+const RADIO_RETRY_WINDOW_MS=120000;
+function retryRadioTrack(track,at=Date.now()){
+ if(!track||!['radio','stream'].includes(track.kind)||track.continuous)return null;
+ const windowAt=Number(track.radioRetryWindowAt)||at;
+ const reset=at-windowAt>=RADIO_RETRY_WINDOW_MS;
+ const attempts=reset?0:(Number(track.reconnectRetries)||0);
+ if(attempts>=3)return null;
+ return {...track,reconnectRetries:attempts+1,radioRetryWindowAt:reset?at:windowAt};
+}
+function audioBufferMs(track,env=process.env){
+ const radio=['radio','stream'].includes(track?.kind);
+ const key=radio?'NEONBEATS_RADIO_PREBUFFER_MS':'NEONBEATS_PREBUFFER_MS';
+ const raw=env[key]??(radio?'1000':env.NEONBEATS_PREBUFFER_MS);
+ const n=Number(raw);
+ return Number.isFinite(n)?Math.max(0,Math.min(radio?3000:800,Math.round(n))):(radio?1000:280);
+}
 function shouldRetryYouTube(track,message){
  if(track?.kind!=='youtube-link'||(track.compatRetries||0)>=2)return false;
  if(isPyInstallerError(message)||/rozpakować bibliotek|\bPYI\b|\bkod:\s*255\b/i.test(String(message||'')))return false;
@@ -26,7 +45,7 @@ class MusicSession{
   this.panelFactory=null;this.panelMessage=null;this.panelChannelId=null;this.panelUpdate=null;this.panelDirty=false;this.panelLastEdit=0;
   this.repeatMode='off';this.skipRequested=false;this.playedCount=0;
   this.connection=joinVoiceChannel({channelId:voiceChannel.id,guildId:guild.id,adapterCreator:guild.voiceAdapterCreator,selfDeaf:true,selfMute:false});
-  this.player=createAudioPlayer({behaviors:{noSubscriber:NoSubscriberBehavior.Pause}});
+  this.player=createAudioPlayer({behaviors:{noSubscriber:NoSubscriberBehavior.Pause,maxMissedFrames:MAX_MISSED_FRAMES}});
   this.connection.subscribe(this.player);
   this.player.on(AudioPlayerStatus.Idle,()=>this.onIdle());
   this.player.on(AudioPlayerStatus.Playing,()=>{
@@ -130,6 +149,17 @@ class MusicSession{
   this.skipRequested=false;
   if(previous&&this.repeatMode==='one'&&!skipped&&!previous.continuous){
    this.queue.unshift({...previous,compatRetries:0});
+  }else if(previous&&!skipped&&['radio','stream'].includes(previous.kind)){
+   // Short dropouts can exhaust Discord's incoming frames without an HTTP error.
+   // The station must reconnect even if FFmpeg exits cleanly.
+   if(previous.continuous){
+    this.retryCount=Math.min(6,this.retryCount+1);
+    this.blockUntil=Date.now()+Math.min(45000,1500*2**Math.min(4,this.retryCount));
+   }else{
+    const next=retryRadioTrack(previous);
+    if(next){this.queue.unshift(next);this.blockUntil=Date.now()+next.reconnectRetries*2000;}
+    else this.announce('⚠️ Radio: przerwy w sygnale powtarzają się. Sprawdź adres stacji lub /radio diagnoza.');
+   }
   }
   this.cleanProcess();this.resource=null;this.current=null;
   if(!this.starting)void this.startNext();
@@ -144,12 +174,13 @@ class MusicSession{
    this.queue.unshift({...item,compatRetries:attempt});
    this.announce('🔄 YouTube: ponawiam '+attempt+'/2 z alternatywnym formatem audio: '+clean(item.title));
    this.blockUntil=Date.now()+attempt*2000;
-  }else if(item&&['radio','stream'].includes(item.kind)&&!item.continuous&&(item.reconnectRetries||0)<3){
-   // Manual radio stations also deserve bounded recovery on temporary outages.
-   const attempt=(item.reconnectRetries||0)+1;
-   this.queue.unshift({...item,reconnectRetries:attempt});
-   this.blockUntil=Date.now()+attempt*2500;
-   this.announce('🔄 Radio: próba ponownego połączenia '+attempt+'/3: '+clean(item.title));
+  }else if(item&&['radio','stream'].includes(item.kind)&&!item.continuous){
+   const next=retryRadioTrack(item);
+   if(next){
+    this.queue.unshift(next);
+    this.blockUntil=Date.now()+next.reconnectRetries*2500;
+    this.announce('🔄 Radio: próba ponownego połączenia '+next.reconnectRetries+'/3: '+clean(item.title));
+   }
   }
   this.skipRequested=true;
   this.cleanProcess();
@@ -190,6 +221,10 @@ class MusicSession{
   deadline.unref?.();
   try{
    await pipeHttpAudio(track.source,child.stdin,{signal:controller.signal,onConnected:()=>clearTimeout(deadline)});
+   // Some Icecast/Shoutcast servers end the HTTP stream with a successful EOF.
+   // For live radio that is a disconnect, not a completed song.
+   if(!controller.signal.aborted&&!this.closed&&this.current===track&&this.process===child)
+    this.fail('Radio: serwer stacji zamknął strumień audio.');
   }catch(err){
    if(!this.closed&&this.process===child){
     const reason=controller.signal.aborted?'upłynął limit połączenia HTTP':errorText(err?.message||err);
@@ -244,11 +279,9 @@ class MusicSession{
     if(code!==0||bytes===0)this.fail('FFmpeg: '+(errorText(stderr)||('brak danych audio (kod: '+(code===null?'brak':code)+', sygnał: '+(signal||'brak')+', bajty: '+bytes+')')));
     else this.retryCount=0;
   });
-  // Small configurable prebuffer for network jitter. Previous 1.8s prebuffer
-  // was too slow on ALTARE; default 280ms, capped at 800ms, disable with 0.
-  const requested=Number(process.env.NEONBEATS_PREBUFFER_MS);
-  const prebufferMs=process.env.NEONBEATS_PREBUFFER_MS!==undefined&&Number.isFinite(requested)
-   ?Math.max(0,Math.min(800,Math.round(requested))):280;
+  // Radio gets a larger initial cushion than YouTube, because a live stream
+  // cannot request missing packets again. Both values remain configurable.
+  const prebufferMs=audioBufferMs(track);
   const buffered=track.kind!=='file'&&prebufferMs>0;
   const inputPcm=buffered?bufferPcm(child.stdout,()=>{
    if(!this.closed&&this.current===track&&this.process===child)this.player.play(this.resource);
@@ -285,4 +318,4 @@ function ensureSession(guild,voiceChannel,textChannel){
  if(!s){s=new MusicSession(guild,voiceChannel,textChannel);sessions.set(guild.id,s);}
  s.textChannel=textChannel;return s;
 }
-module.exports={MusicSession,sessions,ensureSession,clean,MAX_QUEUE,shouldRetryYouTube};
+module.exports={MusicSession,sessions,ensureSession,clean,MAX_QUEUE,MAX_MISSED_FRAMES,audioBufferMs,retryRadioTrack,shouldRetryYouTube};
