@@ -128,3 +128,9 @@ Sesja przeglądarkowa trwa do **90 dni bez aktywności** i odnawia się przy kor
 - Worker nadal używa istniejącej tabeli D1 `snapshots` i `commands`; **nie ma migracji SQL**.
 - Po aktualizacji plików Cloudflare należy osobno wgrać `src/store.js`, `src/web-control.js`, `package.json`, `index.js` na ALTARE i uruchomić bota ponownie. Nie zastępuj `.env`, `data`, `bin`, `music`.
 - Yt-dlp może nie zwracać wyników na niektórych hostingach, a niektóre utwory nie są dostępne do odtwarzania; nie gwarantuje pełnej zgodności z YouTube.
+
+## 3.3 — QUEUE & ADMIN CENTER
+
+Nowe funkcje Web Control: przeciąganie i zmiana kolejności elementów kolejki (także strzałki dla telefonów), usuwanie poszczególnych utworów, 100 ulubionych filmów YouTube na serwer, statystyki odtworzeń i centrum administratora dla serwerów, którymi zalogowany użytkownik może zarządzać przez Discord OAuth2. W centrum nie ma zarządzania kontami Discord ani uprawnień globalnego właściciela bota.
+
+Pliki aktualizacji ALTARE: `src/store.js`, `src/web-control.js`, `index.js`, `package.json`. Cloudflare: `web-control/worker.js`, `website/dashboard.html`. Nie zmieniaj sekretów ani lokalnych danych w `data/`; historia, statystyki i ulubione są zapisywane w istniejących JSON na ALTARE. Nie potrzeba SQL. Statystyki rozpoczynają naliczanie z wdrożeniem 3.3.
