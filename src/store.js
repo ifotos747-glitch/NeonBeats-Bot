@@ -4,7 +4,7 @@ const {DATA,SNOWFLAKE}=require('./config');
 const {validatePublicUrl,restoreTrack}=require('./media');
 const {PRESETS}=require('./effects');
 function location(id){if(!SNOWFLAKE.test(String(id)))throw Error('Niepoprawne ID serwera');return path.join(DATA,String(id)+'.json');}
-function fresh(){return{version:1,radios:[],radioFavorites:[],playlists:{},history:[],dj:'off',alwaysOn:null};}
+function fresh(){return{version:1,radios:[],radioFavorites:[],playlists:{},history:[],favorites:[],stats:{total:0,youtube:0,radio:0,other:0},dj:'off',alwaysOn:null};}
 function read(id){
  const file=location(id);if(!fs.existsSync(file))return fresh();
  let data;try{data=JSON.parse(fs.readFileSync(file,'utf8'));}catch{throw Error('Uszkodzony zapis serwera: '+path.basename(file));}
@@ -13,6 +13,8 @@ function read(id){
  if(Array.isArray(data.radioFavorites))d.radioFavorites=data.radioFavorites.filter(x=>typeof x==='string').slice(0,50);
  if(data.playlists&&typeof data.playlists==='object'&&!Array.isArray(data.playlists))d.playlists=data.playlists;
  if(Array.isArray(data.history))d.history=data.history.filter(x=>x&&typeof x.title==='string').slice(0,60);
+ if(Array.isArray(data.favorites))d.favorites=data.favorites.filter(x=>x&&x.kind==='youtube-link'&&typeof x.source==='string'&&typeof x.title==='string').slice(0,100);
+ if(data.stats&&typeof data.stats==='object')for(const k of ['total','youtube','radio','other'])d.stats[k]=Math.max(0,Math.floor(Number(data.stats[k])||0));
  if(Object.hasOwn(PRESETS,data.dj))d.dj=data.dj;
  if(data.alwaysOn&&['radio','autodj','silent'].includes(data.alwaysOn.mode))d.alwaysOn=data.alwaysOn;
  return d;
@@ -59,11 +61,26 @@ function recordPlay(id,track){
  const d=read(id),last=d.history[0];
  if(last&&last.source===track.source&&Date.now()-last.at<120000)return;
  d.history.unshift({title:String(track.title).slice(0,140),source:String(track.source||'').slice(0,500),kind:String(track.kind||''),at:Date.now()});
+ d.stats.total++;
+ d.stats[track.kind==='youtube-link'?'youtube':track.kind==='radio'?'radio':'other']++;
  d.history=d.history.slice(0,60);write(id,d);
+}
+function addFavorite(id,source,title){
+ if(typeof source!=='string'||!/^https:\/\/www\.youtube\.com\/watch\?v=[a-zA-Z0-9_-]{11}$/.test(source))throw Error('Ulubione: wymagany poprawny link do filmu YouTube.');
+ const d=read(id);
+ if(d.favorites.some(t=>t.source===source))return false;
+ if(d.favorites.length>=100)throw Error('Limit 100 ulubionych utworów.');
+ d.favorites.push({kind:'youtube-link',source,title:String(title||'YouTube').slice(0,140)});write(id,d);return true;
+}
+function removeFavorite(id,source){
+ const d=read(id),before=d.favorites.length;
+ d.favorites=d.favorites.filter(t=>t.source!==source);
+ if(d.favorites.length===before)throw Error('Nie znaleziono ulubionego utworu.');
+ write(id,d);
 }
 function setDJ(id,preset){
  if(!Object.hasOwn(PRESETS,preset))throw Error('Nieznany preset DJ.');
  const d=read(id);d.dj=preset;write(id,d);
 }
 function set247(id,config){const d=read(id);d.alwaysOn=config;write(id,d);}
-module.exports={read,write,addRadio,removeRadio,savePlaylist,loadPlaylist,deletePlaylist,recordPlay,setDJ,set247};
+module.exports={read,write,addRadio,removeRadio,savePlaylist,loadPlaylist,deletePlaylist,recordPlay,addFavorite,removeFavorite,setDJ,set247};
