@@ -141,3 +141,11 @@ Pliki aktualizacji ALTARE: `src/store.js`, `src/web-control.js`, `index.js`, `pa
 - **DJ**: nowe presety FFmpeg `deep`, `vocal`, `soft` obok istniejących. Zmiana presetów może zrestartować aktualnie odtwarzany utwór.
 - **Wyszukiwarka radia**: komenda `radio-search` odpytuje katalog globalny na ALTARE (maks. 15 wyników) i zwraca wyłącznie nazwę oraz identyfikator stacji, bez prywatnych danych i adresów streamów. Kliknięcie odtwarza znalezioną stację. Potrzebne aktywne połączenie bota z kanałem głosowym.
 - **Wdrożenie**: zaktualizuj `website/dashboard.html` i `web-control/worker.js` na Cloudflare oraz `src/effects.js`, `src/web-control.js`, `package.json`, `index.js` na ALTARE. Pozostaw `.env`, `data/`, `music/`, `bin/`. Nie potrzeba zmian SQL ani sekretów.
+
+## 3.5 — PREMIUM EDITION
+
+Premium przypisane do **serwera Discord**, a nie konta użytkownika. Istniejące funkcje 3.4 pozostają darmowe; Premium daje dodatkowe trzy presety DJ (`stadium`, `lofi`, `crystal`), maksymalnie 50 zapisanych playlist zamiast 25 oraz 250 ulubionych utworów zamiast 100. Weryfikacja odbywa się po stronie bota na ALTARE, również po stronie FFmpeg podczas rozpoczynania odtwarzania. Wygaśnięcie Premium nie usuwa danych użytkowników; blokuje tylko tworzenie nowych wpisów powyżej darmowego limitu.
+
+Aktywacja i cofnięcie Premium z panelu Web Control wymaga uwierzytelnienia Discord OAuth oraz zgodności Discord User ID z **`BOT_OWNER_ID` na ALTARE**. Pole `BOT_OWNER_ID` musi zawierać prawdziwy identyfikator właściciela bota (15–24 cyfry); jego brak blokuje aktywacje. Administrator serwera bez tego uprawnienia nie może aktywować Premium. Właściciel może aktywować od 1 do 3650 dni; przedłużenie dolicza dni do bieżącego okresu. Nie ma integracji płatności, abonamentu ani kodów sprzedażowych — to system ręcznego przyznawania dostępu.
+
+Dane Premium przechowywane są w dotychczasowym `data/<guild_id>.json` na ALTARE. Pliki do aktualizacji ALTARE: `src/premium.js` (NOWY), `src/store.js`, `src/effects.js`, `src/web-control.js`, `src/player.js`, `index.js`, `package.json`. Cloudflare: `web-control/worker.js`, `website/dashboard.html`. **Nie trzeba zmieniać tabel D1**. Nie nadpisuj `.env`, `data/`, `music/`, `bin/`. Wymagany restart bota po aktualizacji.
