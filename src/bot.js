@@ -11,7 +11,7 @@ const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.Gui
 const hidden={flags:MessageFlags.Ephemeral};
 function clean(x){return String(x||'').replace(/[\r\n*@<>]/g,' ').slice(0,140);}
 function embed(title,body){return new EmbedBuilder().setColor(0x8e41f5).setTitle(title).setDescription(body).setFooter({text:'NeonBeats • '+VERSION});}
-function panel(track=null){
+function panel(track=null,session=null){
  const row1=new ActionRowBuilder().addComponents(
   new ButtonBuilder().setCustomId('neon:pause').setLabel('Pauza').setEmoji('⏸️').setStyle(ButtonStyle.Secondary),
   new ButtonBuilder().setCustomId('neon:resume').setLabel('Wznów').setEmoji('▶️').setStyle(ButtonStyle.Success),
@@ -24,7 +24,20 @@ function panel(track=null){
   new ButtonBuilder().setCustomId('neon:up').setLabel('+10%').setStyle(ButtonStyle.Secondary),
   new ButtonBuilder().setCustomId('neon:now').setLabel('Teraz gra').setStyle(ButtonStyle.Secondary)
  );
- return {embeds:[embed('🎧 NEONBEATS • MUSIC CONTROL',(track?'🎶 Teraz gra: '+clean(track.title)+'\n':'')+'Sterowanie muzyką, kolejką i głośnością.\nRadio 24/7 • AutoDJ • DJ FX')],components:[row1,row2]};
+ const row3=new ActionRowBuilder().addComponents(
+  new ButtonBuilder().setCustomId('neon:shuffle').setLabel('Losuj kolejkę').setEmoji('🔀').setStyle(ButtonStyle.Secondary),
+  new ButtonBuilder().setCustomId('neon:repeat').setLabel(session?.repeatMode==='one'?'Powtarzanie: WŁ.':'Powtarzanie: WYŁ.').setEmoji('🔁').setStyle(session?.repeatMode==='one'?ButtonStyle.Success:ButtonStyle.Secondary),
+  new ButtonBuilder().setCustomId('neon:refresh').setLabel('Odśwież').setEmoji('🔄').setStyle(ButtonStyle.Secondary)
+ );
+ const next=session?.queue?.[0];
+ const description=(track?'🎶 **Teraz gra:** '+clean(track.title):'⏹️ Nic nie gra')+
+  '\\n⏭️ **Następny:** '+(next?clean(next.title):'Brak w kolejce')+
+  '\\n📋 **Kolejka:** '+(session?.queue?.length||0)+' utworów'+
+  '\\n🔊 **Głośność:** '+(session?.volume??85)+'%'+
+  '   •   🎚️ **DJ:** '+clean(session?.dj||'off')+
+  '\\n🔁 **Powtarzanie:** '+(session?.repeatMode==='one'?'jeden utwór':'wyłączone')+
+  '\\n🎧 **Status:** '+(session?.player?.state?.status||'nieznany');
+ return {embeds:[embed('🎧 NEONBEATS • MUSIC CONTROL',description)],components:[row1,row2,row3]};
 }
 function requireAdmin(i){if(!i.memberPermissions?.has(PermissionFlagsBits.ManageGuild)&&i.guild?.ownerId!==i.user.id)throw Error('Wymagane uprawnienie Zarządzanie serwerem.');}
 function requireOwner(i){
@@ -73,8 +86,11 @@ async function button(i){
  const a=i.customId.slice(5);
  if(a==='queue')return i.reply({content:queueMessage(sessions.get(i.guildId)),...hidden});
  if(a==='now')return i.reply({content:'💿 '+(sessions.get(i.guildId)?.current?.title||'Nic nie gra.'),...hidden});
- if(!['pause','resume','skip','stop','up','down'].includes(a))return;
+ if(!['pause','resume','skip','stop','up','down','shuffle','repeat','refresh'].includes(a))return;
  const s=getSession(i);
+ if(a==='refresh'){await s.showControlPanel(s.current);return i.reply({content:'🔄 Panel odświeżony.',...hidden});}
+ if(a==='shuffle')return i.reply({content:s.shuffleQueue()?'🔀 Kolejka wymieszana.':'🔀 Potrzeba co najmniej 2 utworów w kolejce.',...hidden});
+ if(a==='repeat')return i.reply({content:s.toggleRepeat()==='one'?'🔁 Powtarzanie utworu włączone.':'🔁 Powtarzanie wyłączone.',...hidden});
  if(a==='pause')return i.reply({content:s.pause()?'⏸️ Pauza.':'Nie można wstrzymać.',...hidden});
  if(a==='resume')return i.reply({content:s.resume()?'▶️ Wznowiono.':'Nie można wznowić.',...hidden});
  if(a==='skip')return i.reply({content:s.skip()?'⏭️ Pominięto.':'Nie ma utworu.',...hidden});
@@ -85,11 +101,11 @@ async function button(i){
 async function slash(i){
  const n=i.commandName;
  const sub=['radio','autodj','247','dj','playlist','youtube'].includes(n)?i.options.getSubcommand():'';
- if(n==='neonhelp')return i.reply({embeds:[embed('🎧 NEONBEATS 1.0 — KOMENDY',
+ if(n==='neonhelp')return i.reply({embeds:[embed('🎧 NEONBEATS '+VERSION+' — KOMENDY',
   '/play /queue /nowplaying /pause /resume /skip /stop /leave /volume /panel\n'+
   '/radio szukaj|list|play|stop|ulubione|admin\n/youtube install|aktualizuj|napraw|status|diagnoza|playlista\n/autodj on|off\n/247 on|off|status\n'+
   '/dj preset|off|status\n/playlist save|load|list|delete\n/status /files /testaudio')],...hidden});
- if(n==='panel')return i.reply(panel());
+ if(n==='panel'){const session=sessions.get(i.guildId);return i.reply(panel(session?.current||null,session));}
  if(n==='status'){
   await i.deferReply(hidden);const s=sessions.get(i.guildId),d=store.read(i.guildId);
   return i.editReply({embeds:[embed('🧪 NEONBEATS • STATUS',
