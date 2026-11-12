@@ -92,7 +92,7 @@ test('yt-dlp exposes a writable temporary directory and its free space',()=>{
 test('fetches real title from public YouTube metadata',async()=>{
  const value=await youtubeVideoTitle('https://youtu.be/nahryGbhtEO',{
   fetchImpl:async(endpoint,options)=>{
-   assert.match(endpoint,/youtube\\.com\\/oembed/);
+   assert.ok(endpoint.includes('youtube.com/oembed?'));
    assert.ok(options.signal);
    return {ok:true,json:async()=>({title:'Super Remix 2026 🎵'})};
   }
