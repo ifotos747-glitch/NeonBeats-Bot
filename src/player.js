@@ -209,7 +209,9 @@ class MusicSession{
   const input=track.kind==='file'?['-i',path.join(MUSIC,track.source)]
     :(viaNode||viaYouTube)?['-i','pipe:0']
     :['-reconnect','1','-reconnect_streamed','1','-reconnect_delay_max','4','-rw_timeout','15000000','-i',track.source];
-  const filter=filterFor(this.dj);
+  const premium=require('./premium');
+  const allowedDJ=premium.PREMIUM_DJ.has(this.dj)&&!premium.status(this.guildId).active?'off':this.dj;
+  const filter=filterFor(allowedDJ);
   const args=['-nostdin','-hide_banner','-loglevel','error','-threads','2','-filter_threads','1',...input,'-vn','-sn','-dn',...(filter?['-af',filter]:[]),
     '-ac','2','-ar','48000','-f','s16le','pipe:1'];
   const child=spawn(ffmpegPath(),args,{stdio:[(viaNode||viaYouTube)?'pipe':'ignore','pipe','pipe'],windowsHide:true});
