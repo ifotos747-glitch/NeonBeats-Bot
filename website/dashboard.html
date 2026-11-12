@@ -39,6 +39,7 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
 .qrow{display:flex;align-items:center;gap:8px;border:1px solid #353958;border-radius:10px;padding:10px;margin:7px 0;background:#171b37}.qrow[draggable=true]{cursor:grab}.qrow.dragging{opacity:.55}.qrow .qtitle{flex:1;min-width:0;font-size:13px;overflow-wrap:anywhere}.qrow button{padding:7px 10px;font-size:12px}.statgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stat{border:1px solid #343958;background:#10142e;padding:14px;border-radius:12px}.stat b{display:block;font-size:23px;margin:4px 0}.stat span{color:#bec2dc;font-size:12px}
 .visualizer{margin-top:17px;border:1px solid #413969;border-radius:15px;background:linear-gradient(160deg,#161638,#0b1027);padding:16px;overflow:hidden}.viz-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;font-size:12px;color:#c3c2e9}.viz-bars{height:98px;display:flex;justify-content:center;align-items:flex-end;gap:4px}.viz-bars i{display:block;flex:1;max-width:14px;min-height:7px;height:calc(10% + var(--h)*1%);background:linear-gradient(0deg,#755cfb,#5ae9fb);border-radius:5px 5px 2px 2px;transform-origin:bottom;animation:nb-pulse var(--s) ease-in-out infinite alternate;box-shadow:0 0 13px #6b72ec55}.visualizer.paused .viz-bars i{animation-play-state:paused;opacity:.35;transform:scaleY(.12)}.viz-bars i:nth-child(3n){background:linear-gradient(0deg,#9468fc,#e68dff)}@keyframes nb-pulse{from{transform:scaleY(.32)}to{transform:scaleY(1)}}@media(prefers-reduced-motion:reduce){.viz-bars i{animation:none!important;transform:scaleY(.55)}}.radio-search-items{display:grid;gap:8px;margin-top:12px}.radio-search-items .radio-result{display:flex;align-items:center;gap:12px;background:#191c39;border:1px solid #373c61;border-radius:10px;padding:11px}.radio-result strong{flex:1;overflow-wrap:anywhere;font-size:13px}.radio-result button{padding:8px 12px}.dj-guide{font-size:12px;color:#afb4d3;line-height:1.65;margin-top:12px}
 .premium-panel{margin-top:18px;border-color:#7852c6;background:linear-gradient(140deg,#26133f,#13162e 70%)}.premium-label{font-weight:900;color:#e2bcff;letter-spacing:1px}.premium-info{color:#d7cce8;font-size:14px;line-height:1.7}.premium-limits{display:flex;gap:10px;flex-wrap:wrap;margin-top:13px}.premium-limits span{padding:9px 12px;background:#392554;border:1px solid #7655ad;border-radius:10px;font-size:12px}.premium-action{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}.premium-action input{max-width:160px}
+.premium-admin{border:1px solid #7254af;background:linear-gradient(135deg,#211536,#13162e);padding:22px;border-radius:19px;margin-top:18px}.premium-admin .admin-table{overflow-x:auto;margin-top:15px}.premium-admin table{width:100%;border-collapse:collapse;min-width:760px;font-size:12px}.premium-admin td,.premium-admin th{padding:11px 9px;border-bottom:1px solid #454164;text-align:left;vertical-align:middle}.premium-admin .tools{display:flex;align-items:center;gap:7px}.premium-admin .tools button{padding:7px 9px;font-size:12px;white-space:nowrap}.premium-admin input[type=number]{width:85px;padding:9px}.premium-admin .pagination{display:flex;gap:10px;align-items:center;justify-content:space-between;margin-top:13px}.premium-admin .stats{display:flex;gap:15px;flex-wrap:wrap;color:#dfcaff;font-size:14px}
 </style>
 </head>
 <body>
@@ -73,14 +74,14 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
 <section class="panel"><h2>📻 Wyszukiwarka stacji radiowych</h2><p class="muted">Przeszukaj globalny katalog NeonBeats, a następnie włącz stację jednym kliknięciem.</p><div class="row"><input class="input" id="radioSearchQuery" maxlength="70" placeholder="Np. Eska, RMF, rock"><button id="radioSearchButton" class="primary">Szukaj</button></div><p class="muted" id="radioSearchInfo">Podaj fragment nazwy stacji.</p><div class="radio-search-items" id="radioSearchResults"></div><div class="spaced"><label class="label" for="radioName">Albo wpisz nazwę / ID stacji</label><div class="row"><input class="input" id="radioName" maxlength="100" placeholder="Nazwa stacji"><button id="playRadio">Włącz</button></div></div></section>
 </div>
 </div>
-<div class="grid" style="margin-top:18px"><section class="panel"><h2>⭐ Ulubione utwory</h2><p class="muted">Zachowaj maksymalnie 100 filmów YouTube na wybranym serwerze.</p><button id="favoriteCurrent">⭐ Dodaj aktualny utwór</button><div class="media-list spaced" id="favoriteList">Brak ulubionych utworów.</div></section><section class="panel"><h2>📊 Statystyki odtwarzania</h2><p class="muted">Liczby liczone od wdrożenia NeonBeats 3.3 (jedno zdarzenie na rozpoczęcie utworu).</p><div class="statgrid"><div class="stat"><span>Łącznie</span><b id="statTotal">0</b></div><div class="stat"><span>YouTube</span><b id="statYoutube">0</b></div><div class="stat"><span>Radio</span><b id="statRadio">0</b></div><div class="stat"><span>Inne</span><b id="statOther">0</b></div></div></section></div><section class="panel premium-panel" id="premiumPanel"><div class="premium-label">👑 NEONBEATS PREMIUM</div><h2 style="margin-top:8px">Premium dla wybranego serwera</h2><p id="premiumStatus" class="premium-info">Sprawdzanie subskrypcji…</p><div class="premium-limits"><span id="premiumPlaylists">Playlisty: 25</span><span id="premiumFavorites">Ulubione: 100</span><span>3 ekskluzywne efekty DJ</span></div><p class="muted">Premium jest przypisane do serwera Discord. Aktywację i cofnięcie może wykonać wyłącznie właściciel bota skonfigurowany jako BOT_OWNER_ID na ALTARE.</p><div class="premium-action"><label for="premiumDays">Dni aktywacji</label><input id="premiumDays" class="input" type="number" min="1" max="3650" value="30"><button id="premiumActivate" class="primary">👑 Aktywuj / przedłuż</button><button id="premiumRevoke" class="danger">Cofnij</button><button id="premiumCheck">Sprawdź status</button></div><p id="premiumMessage" class="muted" role="status">Nie są pobierane żadne płatności.</p></section><section class="panel" style="margin-top:18px"><h2>🛡️ Centrum administratora — wszystkie Twoje serwery</h2><p class="muted">Pokazuje tylko serwery, na których masz uprawnienia Zarządzanie serwerem lub Administrator. Wybierz serwer na górze, aby nim sterować.</p><div id="adminGuilds" class="media-list">Ładowanie serwerów…</div></section><div class="grid" style="margin-top:18px"><section class="panel"><h2>🕘 Historia odtwarzania</h2><p class="muted">Ostatnie utwory odtwarzane na wybranym serwerze.</p><div class="media-list" id="historyList"><p class="muted">Brak historii.</p></div></section><section class="panel"><h2>✨ NeonBeats 3.2</h2><p class="muted">Okładki aktualnego utworu YouTube, wyszukiwarka muzyki, trwała historia oraz zapisane playlisty. Wszystko dostępne po zalogowaniu przez Discord.</p><p class="muted">Do odtwarzania nadal wymagany jest aktywny bot na kanale głosowym.</p></section></div><p id="message" role="status" aria-live="polite"></p>
+<div class="grid" style="margin-top:18px"><section class="panel"><h2>⭐ Ulubione utwory</h2><p class="muted">Zachowaj maksymalnie 100 filmów YouTube na wybranym serwerze.</p><button id="favoriteCurrent">⭐ Dodaj aktualny utwór</button><div class="media-list spaced" id="favoriteList">Brak ulubionych utworów.</div></section><section class="panel"><h2>📊 Statystyki odtwarzania</h2><p class="muted">Liczby liczone od wdrożenia NeonBeats 3.3 (jedno zdarzenie na rozpoczęcie utworu).</p><div class="statgrid"><div class="stat"><span>Łącznie</span><b id="statTotal">0</b></div><div class="stat"><span>YouTube</span><b id="statYoutube">0</b></div><div class="stat"><span>Radio</span><b id="statRadio">0</b></div><div class="stat"><span>Inne</span><b id="statOther">0</b></div></div></section></div><section class="panel premium-panel" id="premiumPanel"><div class="premium-label">👑 NEONBEATS PREMIUM</div><h2 style="margin-top:8px">Premium dla wybranego serwera</h2><p id="premiumStatus" class="premium-info">Sprawdzanie subskrypcji…</p><div class="premium-limits"><span id="premiumPlaylists">Playlisty: 25</span><span id="premiumFavorites">Ulubione: 100</span><span>3 ekskluzywne efekty DJ</span></div><p class="muted">Premium jest przypisane do serwera Discord. Aktywację i cofnięcie może wykonać wyłącznie właściciel bota skonfigurowany jako BOT_OWNER_ID na ALTARE.</p><div class="premium-action"><label for="premiumDays">Dni aktywacji</label><input id="premiumDays" class="input" type="number" min="1" max="3650" value="30"><button id="premiumActivate" class="primary">👑 Aktywuj / przedłuż</button><button id="premiumRevoke" class="danger">Cofnij</button><button id="premiumCheck">Sprawdź status</button></div><p id="premiumMessage" class="muted" role="status">Nie są pobierane żadne płatności.</p></section><section class="premium-admin" id="premiumAdminCenter"><h2>👑 PREMIUM ADMIN CENTER 3.6</h2><p class="muted">Lista aktywacji Premium na serwerach, na których znajduje się NeonBeats. Dostęp tylko dla właściciela bota (BOT_OWNER_ID). Dotyczy serwerów, nie pojedynczych użytkowników.</p><button class="primary" id="premiumAdminLoad">🔐 Otwórz listę Premium</button><p class="muted" id="premiumAdminInfo" role="status">Kliknij, aby pobrać listę przez bezpieczne połączenie ALTARE.</p><div class="hidden" id="premiumAdminBody"><div class="stats"><span id="premiumCountAll">Łącznie: 0</span><span id="premiumCountActive">Aktywne: 0</span><span id="premiumCountExpired">Nieaktywne: 0</span></div><div class="admin-table"><table><thead><tr><th>Serwer / ID</th><th>Status</th><th>Aktywacja</th><th>Ważność</th><th>Ostatnia zmiana</th><th>Zarządzaj</th></tr></thead><tbody id="premiumAdminRows"></tbody></table></div><div class="pagination"><button id="premiumAdminPrev">← Poprzednia</button><span id="premiumAdminPage">Strona 1/1</span><button id="premiumAdminNext">Następna →</button></div></div></section><section class="panel" style="margin-top:18px"><h2>🛡️ Centrum administratora — wszystkie Twoje serwery</h2><p class="muted">Pokazuje tylko serwery, na których masz uprawnienia Zarządzanie serwerem lub Administrator. Wybierz serwer na górze, aby nim sterować.</p><div id="adminGuilds" class="media-list">Ładowanie serwerów…</div></section><div class="grid" style="margin-top:18px"><section class="panel"><h2>🕘 Historia odtwarzania</h2><p class="muted">Ostatnie utwory odtwarzane na wybranym serwerze.</p><div class="media-list" id="historyList"><p class="muted">Brak historii.</p></div></section><section class="panel"><h2>✨ NeonBeats 3.2</h2><p class="muted">Okładki aktualnego utworu YouTube, wyszukiwarka muzyki, trwała historia oraz zapisane playlisty. Wszystko dostępne po zalogowaniu przez Discord.</p><p class="muted">Do odtwarzania nadal wymagany jest aktywny bot na kanale głosowym.</p></section></div><p id="message" role="status" aria-live="polite"></p>
 </section>
 </main>
 <footer>NeonBeats Web Control • Wymaga połączenia z Cloudflare i ALTARE • Panel tylko dla uprawnionych administratorów serwera</footer>
 <script>
 (function(){
  const $=id=>document.getElementById(id);
- let selected='',signedIn=false,lastBot=null,managedGuilds=[];
+ let selected='',signedIn=false,lastBot=null,managedGuilds=[],premiumAdminPage=0,premiumAdminPages=1;
  const djDescriptions={off:'Bez efektów.',bass:'Podbicie niskich częstotliwości.',nightcore:'Szybszy i wyższy dźwięk.',slowed:'Wolniejsze odtwarzanie.', '8d':'Efekt przestrzennego przesuwania dźwięku.',echo:'Efekt echa.',club:'Bas i kompresja w stylu klubowym.',deep:'Mocniejsze podbicie basu.',vocal:'Wzmocnienie pasma wyrazistości wokalu.',soft:'Łagodna kompresja i wyrównanie głośności.',stadium:'👑 Premium: przestrzenne echo i kompresja.',lofi:'👑 Premium: miękkie pasmo Lo-Fi.',crystal:'👑 Premium: wyraźny wokal z kontrolą dynamiki.'};
  const VIDEO_ID=/^[A-Za-z0-9_-]{11}$/;
  function youtubeId(raw){try{const u=new URL(raw);return u.hostname==='www.youtube.com'&&u.pathname==='/watch'&&VIDEO_ID.test(u.searchParams.get('v')||'')?u.searchParams.get('v'):null;}catch{return null;}}
@@ -151,6 +152,59 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
    const b=document.createElement('button');b.textContent='Zarządzaj';b.disabled=!g.botOnline;
    b.addEventListener('click',()=>{selected=g.id;$('guild').value=g.id;void refresh();window.scrollTo({top:0,behavior:'smooth'});});row.append(b);box.append(row);
   });
+ }
+ function formatDate(ms){if(!Number.isFinite(Number(ms))||Number(ms)<=0)return '—';return new Date(Number(ms)).toLocaleDateString('pl-PL');}
+ function drawPremiumAdmin(json){
+  if(!json||!Array.isArray(json.items))throw Error('Otrzymano nieprawidłową listę Premium.');
+  premiumAdminPage=json.page;premiumAdminPages=json.pages;
+  $('premiumAdminBody').classList.remove('hidden');
+  $('premiumCountAll').textContent='Łącznie: '+json.total;
+  $('premiumCountActive').textContent='Aktywne: '+json.active;
+  $('premiumCountExpired').textContent='Nieaktywne: '+json.expired;
+  $('premiumAdminPage').textContent='Strona '+(json.page+1)+'/'+json.pages;
+  $('premiumAdminPrev').disabled=json.page<=0;
+  $('premiumAdminNext').disabled=json.page>=json.pages-1;
+  const body=$('premiumAdminRows');body.replaceChildren();
+  if(!json.items.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.textContent='Brak aktywacji Premium do wyświetlenia.';tr.append(td);body.append(tr);return;}
+  json.items.forEach(entry=>{
+   const tr=document.createElement('tr');
+   const cell=(txt)=>{const td=document.createElement('td');td.textContent=txt;tr.append(td);return td;};
+   cell(entry.name+' ('+entry.id+')');
+   cell(entry.active?'✅ Aktywne':entry.revoked?'⛔ Cofnięte':'⌛ Wygasłe');
+   cell(formatDate(entry.createdAt));
+   cell(formatDate(entry.expiresAt)+(entry.active?' ('+entry.daysLeft+' dni)':''));
+   cell(formatDate(entry.updatedAt)+' przez '+(entry.updatedBy||'nieznany'));
+   const td=document.createElement('td'),wrap=document.createElement('div');wrap.className='tools';
+   const days=document.createElement('input');days.type='number';days.min='1';days.max='3650';days.value='30';days.setAttribute('aria-label','Dni przedłużenia dla '+entry.name);
+   const add=document.createElement('button');add.textContent='+ Dni';add.className='primary';
+   add.addEventListener('click',()=>{const number=Number(days.value);if(!Number.isInteger(number)||number<1||number>3650)return message('Wpisz 1–3650 dni.',true);if(confirm('Dodać '+number+' dni Premium dla '+entry.name+' ('+entry.id+')?'))void runPremiumManage({operation:'grant',guildId:entry.id,days:number});});
+   const remove=document.createElement('button');remove.textContent='Cofnij';remove.className='danger';
+   remove.addEventListener('click',()=>{if(confirm('Cofnąć Premium dla '+entry.name+' ('+entry.id+')?'))void runPremiumManage({operation:'revoke',guildId:entry.id});});
+   wrap.append(days,add,remove);td.append(wrap);tr.append(td);body.append(tr);
+  });
+ }
+ async function premiumAdminCommand(action,value){
+  if(!selected)throw Error('Brak serwera do komunikacji z botem.');
+  const data=await api('/api/guild/'+selected+'/control',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action,value})});
+  for(let attempt=0;attempt<15;attempt++){
+   await new Promise(resolve=>setTimeout(resolve,1200));
+   const result=await api('/api/command/'+data.id);
+   if(result.status==='done')return result.result;
+   if(result.status==='failed')throw Error(result.result||'Operacja Premium nie powiodła się.');
+  }
+  throw Error('Bot nie odpowiedział na polecenie Premium w wyznaczonym czasie.');
+ }
+ async function loadPremiumAdmin(page=0){
+  $('premiumAdminInfo').textContent='Pobieranie listy Premium…';
+  try{const data=JSON.parse(await premiumAdminCommand('premium-list',page));drawPremiumAdmin(data);
+   $('premiumAdminInfo').textContent='Lista pobrana z ALTARE. Przedłużenia i cofnięcia wymagają potwierdzenia.';
+  }catch(err){$('premiumAdminBody').classList.add('hidden');$('premiumAdminInfo').textContent='⚠️ '+err.message;message('⚠️ '+err.message,true);}
+ }
+ async function runPremiumManage(value){
+  $('premiumAdminInfo').textContent='Zapisywanie zmian Premium…';
+  try{const result=await premiumAdminCommand('premium-manage',value);
+   message('✅ '+result);await loadPremiumAdmin(premiumAdminPage);await refresh();
+  }catch(err){$('premiumAdminInfo').textContent='⚠️ '+err.message;message(err.message,true);}
  }
  function message(value,error=false){$('message').textContent=value;$('message').classList.toggle('error',error);}
  async function api(path,options={}){
@@ -235,6 +289,9 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
  $('guild').addEventListener('change',event=>{selected=event.target.value;void refresh();});
  $('volume').addEventListener('input',event=>$('volumeLabel').textContent=event.target.value+'%');
  document.querySelectorAll('[data-act]').forEach(b=>b.addEventListener('click',()=>void send(b.dataset.act)));
+ $('premiumAdminLoad').addEventListener('click',()=>void loadPremiumAdmin(0));
+ $('premiumAdminPrev').addEventListener('click',()=>void loadPremiumAdmin(Math.max(0,premiumAdminPage-1)));
+ $('premiumAdminNext').addEventListener('click',()=>void loadPremiumAdmin(Math.min(premiumAdminPages-1,premiumAdminPage+1)));
  $('premiumActivate').addEventListener('click',()=>{const days=Number($('premiumDays').value);if(!Number.isInteger(days)||days<1||days>3650)return message('Podaj 1–3650 dni.',true);if(!confirm('Aktywować / przedłużyć NeonBeats Premium na wybranym serwerze o '+days+' dni?'))return;void send('premium-grant',days);});
  $('premiumRevoke').addEventListener('click',()=>{if(confirm('Na pewno wyłączyć Premium na wybranym serwerze?'))void send('premium-revoke');});
  $('premiumCheck').addEventListener('click',()=>void send('premium-status'));
