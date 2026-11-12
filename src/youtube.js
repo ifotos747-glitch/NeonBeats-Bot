@@ -52,6 +52,23 @@ function ytDlpTempStatus(){
 function isPyInstallerError(message){
  return /(?:\[PYI-\d+\s*:\s*ERROR\]|Failed to extract (?:entry|Cryptodome)|decompression resulted in return code -1)/i.test(String(message||''));
 }
+const titleCache=new Map();
+async function youtubeVideoTitle(url,{fetchImpl=fetch,timeoutMs=4500}={}){
+ const normalized=normalizeYouTubeUrl(url);
+ const cached=titleCache.get(normalized);
+ if(cached&&cached.expires>Date.now())return cached.title;
+ try{
+  const endpoint='https://www.youtube.com/oembed?url='+encodeURIComponent(normalized)+'&format=json';
+  const response=await fetchImpl(endpoint,{signal:AbortSignal.timeout(timeoutMs),headers:{'Accept':'application/json'}});
+  if(!response.ok)return null;
+  const body=await response.json();
+  const title=typeof body?.title==='string'?body.title.replace(/[\x00-\x1f<>@]/g,' ').trim().slice(0,140):'';
+  if(!title)return null;
+  if(titleCache.size>=200)titleCache.delete(titleCache.keys().next().value);
+  titleCache.set(normalized,{title,expires:Date.now()+6*60*60*1000});
+  return title;
+ }catch{return null;}
+}
 function ytDlpPath(){
  if(process.env.YTDLP_PATH)return process.env.YTDLP_PATH;
  return fs.existsSync(LOCAL)?LOCAL:null;
@@ -166,4 +183,4 @@ function diagnoseYouTube(url,{timeoutMs=45000}={}){
   timer.unref?.();
  });
 }
-module.exports={RELEASE,LOCAL,normalizeYouTubeUrl,ytDlpPath,ytDlpTempDirectory,ytDlpTempStatus,ytDlpEnvironment,isPyInstallerError,selectAudioProfile,youtubeArgs,cleanYtdlpError,installYtDlp,updateYtDlp,ytDlpVersion,spawnYouTube,diagnoseYouTube};
+module.exports={RELEASE,LOCAL,normalizeYouTubeUrl,youtubeVideoTitle,ytDlpPath,ytDlpTempDirectory,ytDlpTempStatus,ytDlpEnvironment,isPyInstallerError,selectAudioProfile,youtubeArgs,cleanYtdlpError,installYtDlp,updateYtDlp,ytDlpVersion,spawnYouTube,diagnoseYouTube};

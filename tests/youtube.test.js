@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {normalizeYouTubeUrl,youtubeArgs,selectAudioProfile,cleanYtdlpError,isPyInstallerError,ytDlpEnvironment,ytDlpTempStatus}=require('../src/youtube');
+const {normalizeYouTubeUrl,youtubeVideoTitle,youtubeArgs,selectAudioProfile,cleanYtdlpError,isPyInstallerError,ytDlpEnvironment,ytDlpTempStatus}=require('../src/youtube');
 test('accepts video, shorts and music links',()=>{
  const id='dQw4w9WgXcQ',expected='https://www.youtube.com/watch?v='+id;
  for(const url of [
@@ -87,4 +87,28 @@ test('yt-dlp exposes a writable temporary directory and its free space',()=>{
   else process.env.YTDLP_TMPDIR=original;
   fs.rmSync(dir,{recursive:true,force:true});
  }
+});
+
+test('fetches real title from public YouTube metadata',async()=>{
+ const value=await youtubeVideoTitle('https://youtu.be/nahryGbhtEO',{
+  fetchImpl:async(endpoint,options)=>{
+   assert.ok(endpoint.includes('youtube.com/oembed?'));
+   assert.ok(options.signal);
+   return {ok:true,json:async()=>({title:'Super Remix 2026 🎵'})};
+  }
+ });
+ assert.equal(value,'Super Remix 2026 🎵');
+});
+test('a title metadata error never blocks playback',async()=>{
+ const title=await youtubeVideoTitle('https://youtu.be/dQw4w9WgXcQ',{
+  fetchImpl:async()=>{throw new Error('network offline');}
+ });
+ assert.equal(title,null);
+});
+test('metadata titles cannot inject Discord mentions',async()=>{
+ const title=await youtubeVideoTitle('https://youtu.be/AAAAAAAAAAA',{
+  fetchImpl:async()=>({ok:true,json:async()=>({title:'Remix @everyone <here> \\n DJ'})})
+ });
+ assert.ok(!title.includes('@'));
+ assert.ok(!title.includes('<'));
 });

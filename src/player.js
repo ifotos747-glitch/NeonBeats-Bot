@@ -21,10 +21,15 @@ class MusicSession{
   this.alwaysOn=null;this.dj=store.read(guild.id).dj;
   this.process=null;this.ytProcess=null;this.netAbort=null;this.timer=null;this.retry=null;this.startupTimer=null;this.blockUntil=0;
   this.lastError='';this.closed=false;this.starting=false;this.retryCount=0;
+  this.panelFactory=null;this.panelMessage=null;this.panelChannelId=null;this.panelUpdate=Promise.resolve();
   this.connection=joinVoiceChannel({channelId:voiceChannel.id,guildId:guild.id,adapterCreator:guild.voiceAdapterCreator,selfDeaf:true,selfMute:false});
   this.player=createAudioPlayer({behaviors:{noSubscriber:NoSubscriberBehavior.Pause}});
   this.connection.subscribe(this.player);
   this.player.on(AudioPlayerStatus.Idle,()=>this.onIdle());
+  this.player.on(AudioPlayerStatus.Playing,()=>{
+   clearTimeout(this.startupTimer);this.startupTimer=null;this.retryCount=0;
+   if(this.current)void this.showControlPanel(this.current);
+  });
   this.player.on('error',e=>this.fail('Discord Voice: '+e.message));
   this.connection.on('error',e=>this.fail('Połączenie głosowe: '+e.message));
   this.connection.on(VoiceConnectionStatus.Disconnected,()=>{
@@ -32,6 +37,21 @@ class MusicSession{
     void Promise.race([entersState(this.connection,VoiceConnectionStatus.Signalling,5_000),entersState(this.connection,VoiceConnectionStatus.Connecting,5_000)])
       .catch(()=>{if(!this.closed&&this.connection.state.status===VoiceConnectionStatus.Disconnected)this.destroy();});
   });
+ }
+ showControlPanel(track){
+  if(!this.panelFactory||!this.textChannel?.send)return Promise.resolve();
+  const channel=this.textChannel;
+  const payload=this.panelFactory(track);
+  this.panelUpdate=this.panelUpdate.catch(()=>{}).then(async()=>{
+   if(this.closed)return;
+   if(this.panelMessage&&this.panelChannelId===channel.id){
+    try{await this.panelMessage.edit(payload);return;}catch{this.panelMessage=null;}
+   }
+   const message=await channel.send({...payload,allowedMentions:{parse:[]}});
+   if(this.closed)return;
+   this.panelMessage=message;this.panelChannelId=channel.id;
+  }).catch(err=>console.warn('[NEON PANEL] '+String(err?.message||err).slice(0,150)));
+  return this.panelUpdate;
  }
  announce(message){if(this.textChannel?.send)void this.textChannel.send({content:String(message).slice(0,1700),allowedMentions:{parse:[]}}).catch(()=>{});}
  clearTimer(){clearTimeout(this.timer);this.timer=null;}
@@ -195,7 +215,7 @@ class MusicSession{
     if(this.current===track&&this.player.state.status!==AudioPlayerStatus.Playing)
       this.fail(viaYouTube?'YouTube: nie uruchomiono audio w 90 sekundach. Sprawdź /youtube diagnoza.':'Dźwięk nie wystartował w 30 sekund.');
   },startupLimit);this.startupTimer.unref?.();
-  this.player.once(AudioPlayerStatus.Playing,()=>{clearTimeout(this.startupTimer);this.startupTimer=null;this.retryCount=0;});
+
  }
  destroy(){if(this.closed)return;this.closed=true;this.clearTimer();clearTimeout(this.retry);this.cleanProcess();
    this.queue=[];this.player.stop(true);this.connection.destroy();sessions.delete(this.guildId);}

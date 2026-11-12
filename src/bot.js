@@ -5,13 +5,13 @@ const {ffmpegPath,BOT_NAME,VERSION}=require('./config');
 const {musicFiles,localFile,classifyInput}=require('./media');
 const store=require('./store'),radio=require('./global-radio'),{sessions,ensureSession}=require('./player');
 const {diagnoseStream,diagnoseLocalFFmpeg,diagnoseHttp,formatDiagnostic}=require('./diagnostics');
-const {normalizeYouTubeUrl,ytDlpPath,ytDlpTempStatus,installYtDlp,updateYtDlp,ytDlpVersion,diagnoseYouTube}=require('./youtube');
+const {normalizeYouTubeUrl,youtubeVideoTitle,ytDlpPath,ytDlpTempStatus,installYtDlp,updateYtDlp,ytDlpVersion,diagnoseYouTube}=require('./youtube');
 const {MAX_PLAYLIST_ITEMS,isYouTubePlaylistUrl,loadYoutubePlaylist}=require('./youtube-playlist');
 const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildVoiceStates]});
 const hidden={flags:MessageFlags.Ephemeral};
 function clean(x){return String(x||'').replace(/[\r\n*@<>]/g,' ').slice(0,140);}
 function embed(title,body){return new EmbedBuilder().setColor(0x8e41f5).setTitle(title).setDescription(body).setFooter({text:'NeonBeats • '+VERSION});}
-function panel(){
+function panel(track=null){
  const row1=new ActionRowBuilder().addComponents(
   new ButtonBuilder().setCustomId('neon:pause').setLabel('Pauza').setEmoji('⏸️').setStyle(ButtonStyle.Secondary),
   new ButtonBuilder().setCustomId('neon:resume').setLabel('Wznów').setEmoji('▶️').setStyle(ButtonStyle.Success),
@@ -24,7 +24,7 @@ function panel(){
   new ButtonBuilder().setCustomId('neon:up').setLabel('+10%').setStyle(ButtonStyle.Secondary),
   new ButtonBuilder().setCustomId('neon:now').setLabel('Teraz gra').setStyle(ButtonStyle.Secondary)
  );
- return {embeds:[embed('🎧 NEONBEATS • MUSIC CONTROL','Sterowanie muzyką, kolejką i głośnością.\nRadio 24/7 • AutoDJ • DJ FX')],components:[row1,row2]};
+ return {embeds:[embed('🎧 NEONBEATS • MUSIC CONTROL',(track?'🎶 Teraz gra: '+clean(track.title)+'\n':'')+'Sterowanie muzyką, kolejką i głośnością.\nRadio 24/7 • AutoDJ • DJ FX')],components:[row1,row2]};
 }
 function requireAdmin(i){if(!i.memberPermissions?.has(PermissionFlagsBits.ManageGuild)&&i.guild?.ownerId!==i.user.id)throw Error('Wymagane uprawnienie Zarządzanie serwerem.');}
 function requireOwner(i){
@@ -40,7 +40,7 @@ function voice(i){const m=i.guild?.members.cache.get(i.user.id)||i.member,v=m?.v
  if(!v?.isVoiceBased?.())throw Error('Najpierw dołącz do kanału głosowego.');return v;}
 function getSession(i){const s=sessions.get(i.guildId);if(!s)throw Error('Bot nie jest połączony.');
  if(voice(i).id!==s.channelId)throw Error('Dołącz do kanału, na którym jest bot.');return s;}
-function join(i){return ensureSession(i.guild,voice(i),i.channel);}
+function join(i){const session=ensureSession(i.guild,voice(i),i.channel);session.panelFactory=panel;return session;}
 async function enqueueYoutubePlaylist(i,source,{start=1,limit=MAX_PLAYLIST_ITEMS}={}){
  // Validate channel before contacting YouTube; no voice connection created yet.
  voice(i);
@@ -167,7 +167,12 @@ async function slash(i){
    const url=normalizeYouTubeUrl(x.source);
    if(!ytDlpPath())return i.reply({content:'⚠️ YouTube wymaga konfiguracji. Administrator: /youtube install.',...hidden});
    x.source=url;
-   x.title='YouTube • '+new URL(url).searchParams.get('v');
+   // A quick public metadata lookup; do not run another PyInstaller yt-dlp
+   // process or block playback if YouTube does not expose the title.
+   await i.deferReply(hidden);
+   x.title=await youtubeVideoTitle(url)||'YouTube • '+new URL(url).searchParams.get('v');
+   join(i).enqueue(x);
+   return i.editReply({content:'✅ Dodano: '+clean(x.title)});
   }
   if(x.kind==='stream')requireAdmin(i);
   join(i).enqueue(x);return i.reply({content:'✅ Dodano: '+clean(x.title)});
@@ -288,7 +293,7 @@ async function restore247(){
    const v=await guild.channels.fetch(d.channelId).catch(()=>null);
    const text=await guild.channels.fetch(d.textChannelId).catch(()=>null);
    if(!v?.isVoiceBased?.()||!v.joinable)continue;
-   const s=ensureSession(guild,v,text||null);s.alwaysOn=d;void s.startNext();
+   const s=ensureSession(guild,v,text||null);s.panelFactory=panel;s.alwaysOn=d;void s.startNext();
    console.log('📡 Przywrócono 24/7: '+d.mode);
   }catch(e){console.warn('NeonBeats 24/7:',e.message);}
  }
