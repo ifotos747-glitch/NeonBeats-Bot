@@ -31,12 +31,12 @@ function panel(track=null,session=null){
  );
  const next=session?.queue?.[0];
  const description=(track?'🎶 **Teraz gra:** '+clean(track.title):'⏹️ Nic nie gra')+
-  '\\n⏭️ **Następny:** '+(next?clean(next.title):'Brak w kolejce')+
-  '\\n📋 **Kolejka:** '+(session?.queue?.length||0)+' utworów'+
-  '\\n🔊 **Głośność:** '+(session?.volume??85)+'%'+
+  '\n⏭️ **Następny:** '+(next?clean(next.title):'Brak w kolejce')+
+  '\n📋 **Kolejka:** '+(session?.queue?.length||0)+' utworów'+
+  '\n🔊 **Głośność:** '+(session?.volume??85)+'%'+
   '   •   🎚️ **DJ:** '+clean(session?.dj||'off')+
-  '\\n🔁 **Powtarzanie:** '+(session?.repeatMode==='one'?'jeden utwór':'wyłączone')+
-  '\\n🎧 **Status:** '+(session?.player?.state?.status||'nieznany');
+  '\n🔁 **Powtarzanie:** '+(session?.repeatMode==='one'?'jeden utwór':'wyłączone')+
+  '\n🎧 **Status:** '+(session?.player?.state?.status||'nieznany');
  return {embeds:[embed('🎧 NEONBEATS • MUSIC CONTROL',description)],components:[row1,row2,row3]};
 }
 function requireAdmin(i){if(!i.memberPermissions?.has(PermissionFlagsBits.ManageGuild)&&i.guild?.ownerId!==i.user.id)throw Error('Wymagane uprawnienie Zarządzanie serwerem.');}
