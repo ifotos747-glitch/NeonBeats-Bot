@@ -145,7 +145,7 @@ async function slash(i){
    '\nBufor radia: '+audioBufferMs({kind:'radio'})+' ms | bufor YouTube: '+audioBufferMs({kind:'youtube-link'})+' ms'+
    '\nTolerancja krótkich przerw: '+MAX_MISSED_FRAMES*20+' ms'+
    (s?.radioStats?'\n📻 Radio live: bufor '+s.radioStats.bufferedMs+' ms (maks. '+s.radioStats.peakBufferedMs+' ms)'+
-    '\n📉 Niedobory audio: '+s.radioStats.underruns+' | cisza ochronna: '+s.radioStats.silenceMs+' ms':'')+
+    '\n📉 Odczyty bez PCM: '+s.radioStats.underruns+' | min. ciszy przy niedoborze: '+s.radioStats.silenceMs+' ms':'')+
    '\n'+performanceText(performanceSnapshot(s))+
    (s?.lastError?'\nOstatni błąd: '+clean(s.lastError):''))]});
  }
