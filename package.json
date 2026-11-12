@@ -1,8 +1,8 @@
 {
   "name": "neonbeats-bot",
-  "version": "3.2.0",
+  "version": "3.3.0",
   "private": true,
-  "description": "NeonBeats 3.2 — ULTIMATE MUSIC DASHBOARD | Discord music, radio 24/7, AutoDJ, DJ effects and playlists",
+  "description": "NeonBeats 3.3 — QUEUE & ADMIN CENTER | Discord music, radio 24/7, AutoDJ, DJ effects and playlists",
   "main": "index.js",
   "engines": {
     "node": ">=24.17.0"
