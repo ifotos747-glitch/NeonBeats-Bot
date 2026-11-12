@@ -65,7 +65,8 @@ function bufferLivePcm(source,onReady,{milliseconds=1000,recoveryMs=400,maxMs=60
   return result;
  }
  function pump(){
-  if(closed||!started)return;
+  if(closed)return;
+  if(!started){waiting=true;return;}
   if(recovering){
    if(buffered<recoveryBytes&&!ended){waiting=true;return;}
    recovering=false;underflow=false;
