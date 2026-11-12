@@ -3,7 +3,7 @@ require('dotenv').config();
 const {envCheck, VERSION}=require('./src/config');
 async function main(){
   envCheck();
-  console.log('🎧 NeonBeats Bot '+VERSION+' — QUEUE & ADMIN CENTER');
+  console.log('🎧 NeonBeats Bot '+VERSION+' — MUSIC EXPERIENCE');
   await require('./src/register').register();
   await require('./src/bot').start();
 }
