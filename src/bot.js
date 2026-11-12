@@ -136,7 +136,7 @@ async function slash(i){
  }
  if(n==='panel'){const session=sessions.get(i.guildId);return i.reply(panel(session?.current||null,session));}
  if(n==='status'){
-  await i.deferReply(hidden);const s=sessions.get(i.guildId),d=store.read(i.guildId),health=s?.radioHealth?.snapshot();
+  await i.deferReply(hidden);const s=sessions.get(i.guildId),d=store.read(i.guildId),health=s?.radioHealth?.snapshot(),voice=s?.voiceHealth?.snapshot();
   return i.editReply({embeds:[embed('🧪 NEONBEATS • STATUS',
    'Wersja: '+VERSION+'\nNode: '+process.version+'\nFFmpeg: '+await ffVersion()+'\nVoice: '+
    (s?.connection.state.status||'brak')+'\nPlayer: '+(s?.player.state.status||'brak')+
@@ -154,6 +154,14 @@ async function slash(i){
     '\nPrzerwy odczytu >0,5s: '+health.readGaps500+' | >2s: '+health.readGaps2000+' | najdłuższa: '+health.maxReadGapMs+' ms'+
     '\nFFmpeg ostrzeżenia audio: '+health.decoderWarnings+
     (health.lastDecoderWarning?'\nOstatnie FFmpeg: '+clean(health.lastDecoderWarning):''):'')+
+   (voice&&['radio','stream'].includes(s?.current?.kind)?
+    '\n🎙️ Voice: odczyty '+voice.resourceReads+' | bez ramki '+voice.missingReads+
+    ' (serie: '+voice.missingEpisodes+', maks.: '+voice.longestMissingSeries+')'+
+    '\nRytm odczytu: przerwy >50ms '+voice.readGaps50+' | >100ms '+voice.readGaps100+
+    ' | maks. '+voice.largestReadGapMs+' ms'+
+    '\nWysyłanie lokalne: OK '+voice.dispatchSuccess+' | nieudane '+voice.dispatchFailed+
+    ' | bez potwierdzenia '+voice.dispatchUnavailable+
+    ' | przerwy >50ms '+voice.dispatchGaps50+' | maks. '+voice.largestDispatchGapMs+' ms':'')+
    '\n'+performanceText(performanceSnapshot(s))+
    (s?.lastError?'\nOstatni błąd: '+clean(s.lastError):''))]});
  }
