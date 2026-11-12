@@ -35,7 +35,7 @@ ul{padding-left:21px;margin-bottom:0}li{margin:8px 0;color:#c1c5e0;font-size:14p
 .hidden{display:none!important}.chip{display:inline-flex;align-items:center;gap:7px;border-radius:100px;padding:6px 11px;background:#252242;border:1px solid #5b507a;font-size:12px;font-weight:750;color:#e7d8ff}
 footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
 @media(max-width:750px){.grid{grid-template-columns:1fr}.panel{padding:19px}.row{flex-wrap:wrap}.row .input{min-width:100%}.hero{align-items:flex-start}}
-.cover{width:145px;height:145px;object-fit:cover;border-radius:16px;box-shadow:0 12px 32px #0005;background:#242443;flex-shrink:0}.playing{display:flex;align-items:center;gap:20px;flex-wrap:wrap}.media-list{display:grid;gap:11px}.media-row{display:flex;align-items:center;gap:12px;border:1px solid #343756;padding:9px;border-radius:11px}.media-row img{width:54px;height:54px;object-fit:cover;border-radius:8px;background:#292941}.media-row .meta{flex:1;min-width:0;overflow-wrap:anywhere;font-size:13px}.media-row button{padding:9px;font-size:12px}.mini{font-size:12px;color:#aaaed0;margin-top:4px}.page-heading{font-weight:800;color:#a986ff;letter-spacing:1px;font-size:12px;margin:0 0 16px}
+.cover{width:145px;height:145px;object-fit:cover;border-radius:16px;box-shadow:0 12px 32px #0005;background:#242443;flex-shrink:0}.radio-cover{width:145px;height:145px;border-radius:16px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;background:radial-gradient(circle at 25% 20%,#a54eff,#433cbd 43%,#161333 100%);border:1px solid #ffffff30;box-shadow:0 12px 32px #0005;color:#fff;text-align:center}.radio-cover .radio-note{font-size:48px;line-height:1.1;text-shadow:0 3px 20px #fff5}.radio-cover strong{font-size:13px;letter-spacing:2px}.radio-cover span{font-size:10px;letter-spacing:1px;color:#d9cbff}.cover.hidden,.radio-cover.hidden{display:none!important}.playing{display:flex;align-items:center;gap:20px;flex-wrap:wrap}.media-list{display:grid;gap:11px}.media-row{display:flex;align-items:center;gap:12px;border:1px solid #343756;padding:9px;border-radius:11px}.media-row img{width:54px;height:54px;object-fit:cover;border-radius:8px;background:#292941}.media-row .meta{flex:1;min-width:0;overflow-wrap:anywhere;font-size:13px}.media-row button{padding:9px;font-size:12px}.mini{font-size:12px;color:#aaaed0;margin-top:4px}.page-heading{font-weight:800;color:#a986ff;letter-spacing:1px;font-size:12px;margin:0 0 16px}
 </style>
 </head>
 <body>
@@ -48,7 +48,7 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
 <div class="panel" style="margin-bottom:18px"><label class="label" for="guild">Serwer Discord</label><select class="input" id="guild"></select></div>
 <div class="grid">
 <div class="stack">
-<section class="panel"><div class="label">MUSIC CONTROL</div><h2>🎶 Teraz gra</h2><div class="playing"><img class="cover" id="cover" alt="Okładka aktualnego utworu" src="/favicon.ico"><div><p class="now" id="song">Nie odtwarza</p><p class="next" id="next">Następny: brak</p></div></div>
+<section class="panel"><div class="label">MUSIC CONTROL</div><h2>🎶 Teraz gra</h2><div class="playing"><img class="cover hidden" id="cover" alt="Okładka aktualnego utworu YouTube"><div class="radio-cover" id="radioCover" aria-label="Grafika zastępcza radia NeonBeats"><span class="radio-note">♫</span><strong>NEONBEATS</strong><span>RADIO LIVE</span></div><div><p class="now" id="song">Nie odtwarza</p><p class="next" id="next">Następny: brak</p></div></div>
 <div class="ctrl"><button data-act="pause">⏸️ Pauza</button><button data-act="resume">▶️ Wznów</button><button data-act="skip">⏭️ Pomiń</button><button data-act="stop" class="danger">⏹️ Stop</button></div>
 <div class="ctrl"><button data-act="shuffle">🔀 Losuj</button><button data-act="repeat">🔁 Powtarzanie</button><button data-act="clear" class="danger">🗑️ Wyczyść kolejkę</button></div></section>
 <section class="panel"><h2>📋 Kolejka</h2><ol id="queue"><li>Brak pozycji</li></ol></section>
@@ -122,11 +122,15 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
    message('Polecenie w kolejce. Odśwież panel za chwilę.');
   }catch(e){message('⚠️ '+e.message,true);if(action==='playlist')$('playlistResult').textContent='⚠️ '+e.message;}
  }
+ $('cover').addEventListener('load',()=>{if($('cover').naturalWidth>0&&$('cover').dataset.cover===$('cover').src){$('cover').classList.remove('hidden');$('radioCover').classList.add('hidden');}});
+ $('cover').addEventListener('error',()=>{$('cover').classList.add('hidden');$('radioCover').classList.remove('hidden');});
  function render(bot){
   $('status').textContent=bot.connected?'Połączony z głosem • '+bot.playerStatus:'Bot na serwerze (bez połączenia głosowego)';
   $('song').textContent=bot.nowPlaying||'Nic nie gra';
   $('next').textContent='Następny: '+(bot.queue[0]||'brak');
-  const cover=thumb(bot.nowSource);$('cover').src=cover||'/favicon.ico';
+  const cover=thumb(bot.nowSource),img=$('cover'),fallback=$('radioCover');
+  img.classList.add('hidden');fallback.classList.remove('hidden');
+  if(cover){if(img.dataset.cover!==cover){img.dataset.cover=cover;img.src=cover;}if(img.complete&&img.naturalWidth>0){img.classList.remove('hidden');fallback.classList.add('hidden');}}
   renderHistory(bot.history);renderSaved(bot.savedPlaylists);
   $('volume').value=String(bot.volume);$('volumeLabel').textContent=bot.volume+'%';
   $('repeat').textContent=bot.repeat==='one'?'Jeden utwór':'Wyłączone';
