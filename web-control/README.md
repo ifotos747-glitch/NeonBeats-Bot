@@ -159,3 +159,7 @@ Panel Web Control zbiorczo wyświetla aktywacje i cofnięcia Premium na serwerac
 Nowe komendy Discord: **`/premium status`** — stan Premium na bieżącym serwerze (dla członków serwera) lub po podaniu opcjonalnego `serwer-id` (tylko dla właściciela bota); **`/premium lista`** — właściciel bota widzi listę aktywacji i zbiorcze liczniki. Bot musi być członkiem serwera, by sprawdzić go po ID.
 
 Wdrożenie: ALTARE — `src/premium.js`, `src/store.js`, `src/web-control.js`, `src/bot.js`, `src/commands.js`, `package.json`, `index.js`, następnie restart i ponowna rejestracja komend (bot robi to przy starcie). Cloudflare — `web-control/worker.js`, `website/dashboard.html`. Zachowaj prywatne `.env`, `data/`, `music/`, `bin/`. Nie trzeba nowego SQL.
+
+## 3.7 — FASTSTREAM
+
+Optymalizacje dotyczą procesu na ALTARE: szybsze `/play`, niezależne per-serwer kolejki poleceń Web Control, rzadsze odświeżanie panelu Discord, bufor sieciowy PCM 280 ms i ograniczone automatyczne ponawianie radia. **Nie zmieniono `web-control/worker.js` ani `website/dashboard.html`** — Cloudflare nie wymaga nowego wdrożenia. Opcjonalny `NEONBEATS_PREBUFFER_MS` (0–800) pozwala dobrać bufor dla hostingu, domyślnie 280. Testy GitHub Actions nie zastępują odsłuchu na ALTARE.
