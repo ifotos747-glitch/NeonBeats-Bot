@@ -35,4 +35,15 @@ test('3.2 playback history is persistent, bounded, and isolated by guild',()=>{
  assert.equal(store.read(id).history.length,60);
  assert.equal(store.read(id).history[0].title,'Song 64');
 });
+test('3.3 favorites and playback counters are isolated per guild',()=>{
+ const url='https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+ assert.equal(store.addFavorite(id,url,'Test favorite'),true);
+ assert.equal(store.addFavorite(id,url,'Test favorite'),false);
+ assert.equal(store.read(id).favorites.length,1);
+ assert.equal(store.read('123456789012345679').favorites.length,0);
+ assert.ok(store.read(id).stats.total>=1);
+ assert.ok(store.read(id).stats.youtube>=1);
+ assert.throws(()=>store.addFavorite(id,'https://invalid.example/test','No'),/link/);
+ store.removeFavorite(id,url);assert.equal(store.read(id).favorites.length,0);
+});
 test.after(()=>fs.rmSync(dir,{force:true,recursive:true}));
