@@ -157,3 +157,13 @@ Wspólny objaw: Radio Club Dj i ESKA lekko zacinają się, podczas gdy `/testaud
 - `/status` podaje **Tryb radia: PCM / OPUS NATYWNY / PCM (powrót po błędzie)** oraz statystyki właściwego bufora.
 
 **ALTARE:** wymień `src/player.js`, `src/opus-buffer.js` (nowy), `src/bot.js`, `package.json`, `index.js` z GitHub. Zostaw `.env`, `data/`, `music/`, `bin/` bez nadpisania; w swoim prywatnym `.env` dodaj `NEONBEATS_RADIO_CODEC=opus`, a następnie restart. Porównaj te same dwie stacje przez 10 minut z trybem PCM. Jeśli nadal tnie, odeślij `/status` i opis częstotliwości; nie deklarujemy usunięcia zakłóceń bez odsłuchu na ALTARE. Nie potrzeba zmian Cloudflare/SQL ani instalacji nowych pakietów npm dla tej funkcji — OggDemuxer dostarcza obecny `@discordjs/voice`.
+
+## NeonBeats 3.7.7 — OPUS FRAME BUFFER
+
+W 3.7.6 dwa internetowe radia (Radio Club Dj i ESKA) wciąż sporadycznie zakłócały audio mimo prawidłowych raportów HTTP/FFmpeg/Node.js, natomiast lokalne `/testaudio` działało płynnie. Stary bufor trybu Opus przeliczał liczbę bajtów skompresowanego Ogg na milisekundy, więc `0 ms` w `/status` **nie był wiarygodnym wskaźnikiem pustego bufora dźwięku**. Dodatkowo Ogg strony były konsumowane natychmiast przez demuxer i nie działało ograniczanie zapasu prawdziwych 20-ms ramek.
+
+**Zmiana:** W trybie `NEONBEATS_RADIO_CODEC=opus` nowy `src/opus-buffer.js` używa istniejącego demuxera Ogg/Opus z `@discordjs/voice` do wydzielenia rzeczywistych pakietów Opus po 20 ms, umieszcza je w ograniczonej kolejce (do około 6 sekund), a następnie podaje je do odtwarzacza na żądanie. Gdy kolejka się wyczerpie, raportuje `opróżnienia bufora`; po odzyskaniu danych chwilę zbiera pakiety przed kontynuacją. Nie dodano nowego zegara `setInterval` ani dodatkowego kodowania Opus w Node.js. Dotychczasowy tryb `pcm` i ścieżki YouTube/plików pozostały bez zmian.
+
+W `/status` zobaczysz `Tryb radia: OPUS NATYWNY`, dokładny `Radio live: bufor N ms`, liczniki `Opus: pakiety otrzymane ... | podane do Voice ... | opróżnienia bufora ...`. Nie używamy już mało dokładnego oszacowania na podstawie bajtów Ogg. **Uwaga:** zerowy licznik opróżnień nie wyklucza trzasków powstających dalej w ścieżce Discord Voice ani przy samym źródle audio.
+
+**ALTARE:** zaktualizuj `src/opus-buffer.js`, `src/player.js`, `src/bot.js`, `package.json` i `index.js`; zachowaj swoje `.env`, `data/`, `music/`, `bin/`. W `.env` pozostaw `NEONBEATS_RADIO_CODEC=opus` i dotychczasowy `NEONBEATS_RADIO_PREBUFFER_MS=2000`. Po restarcie i uruchomieniu radia przetestuj ESKA oraz Radio Club Dj 10–15 minut; prześlij `/status` po rzeczywistym zakłóceniu. W razie pogorszenia wróć do `NEONBEATS_RADIO_CODEC=pcm` i zrestartuj bota.
