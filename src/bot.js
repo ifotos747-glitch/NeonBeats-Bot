@@ -7,6 +7,7 @@ const store=require('./store'),radio=require('./global-radio'),{sessions,ensureS
 const {diagnoseStream,diagnoseLocalFFmpeg,diagnoseHttp,formatDiagnostic}=require('./diagnostics');
 const {normalizeYouTubeUrl,youtubeVideoTitle,ytDlpPath,ytDlpTempStatus,installYtDlp,updateYtDlp,ytDlpVersion,diagnoseYouTube}=require('./youtube');
 const {MAX_PLAYLIST_ITEMS,isYouTubePlaylistUrl,loadYoutubePlaylist}=require('./youtube-playlist');
+const {startWebControl}=require('./web-control');
 const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildVoiceStates]});
 const hidden={flags:MessageFlags.Ephemeral};
 function clean(x){return String(x||'').replace(/[\r\n*@<>]/g,' ').slice(0,140);}
@@ -316,6 +317,7 @@ async function restore247(){
 }
 client.once(Events.ClientReady,async()=>{
  console.log('✅ '+BOT_NAME+' online jako '+client.user.tag);
+ startWebControl(client);
  try{console.log('📻 Migracja stacji: '+radio.migrate());}catch(e){console.error('Migracja radia:',e.message);}await restore247();setInterval(()=>void restore247(),60_000).unref?.();
 });
 client.on(Events.InteractionCreate,async i=>{

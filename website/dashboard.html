@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#080a1d">
+<title>NeonBeats • Web Control</title>
+<meta name="description" content="Steruj NeonBeats w przeglądarce po bezpiecznym logowaniu przez Discord.">
+<style>
+:root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#eff0ff;background:#090b1f;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse 80% 40% at 20% 0,#442a752e,transparent),#090b1f}
+a{color:inherit;text-decoration:none}button,input,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.45;cursor:not-allowed}
+header{border-bottom:1px solid #ffffff18;background:#0c0e24db;backdrop-filter:blur(15px);position:sticky;top:0;z-index:2}
+nav{max-width:1150px;margin:auto;padding:17px 22px;display:flex;align-items:center;justify-content:space-between;gap:15px}
+.logo{font-weight:900;font-size:20px;letter-spacing:-.6px}.logo b{color:#67defe}.go{font-size:13px;color:#b9bce0}.go:hover{color:#7ce6ff}
+main{width:min(1100px,calc(100% - 30px));margin:55px auto 100px}
+.hero{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;margin:0 0 33px}
+.kicker{color:#7fe7fc;letter-spacing:2px;font-weight:900;font-size:11px;text-transform:uppercase;margin:0 0 6px}
+h1{font-size:clamp(35px,5vw,58px);letter-spacing:-2px;line-height:1.1;margin:0 0 12px}
+.muted{color:#a3a9c7;font-size:14px}
+.actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+button,.button{border:1px solid #4a416e;border-radius:12px;background:#211c42;padding:12px 15px;color:#f6f1ff;font-size:13px;font-weight:800}
+button:hover:not(:disabled),.button:hover{border-color:#ac83ff;background:#35295d}
+button.primary,.button.primary{background:linear-gradient(120deg,#9758f9,#5f89f9);border-color:#9b77ff;box-shadow:0 10px 28px #7a51f438}
+button.danger{border-color:#704355;background:#38202f}
+.panel{border:1px solid #2b2f50;border-radius:19px;background:#13162e;padding:24px;box-shadow:0 16px 50px #0002}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.stack{display:grid;gap:18px}.label{font-size:11px;text-transform:uppercase;letter-spacing:1.2px;font-weight:900;color:#a986ff;margin-bottom:8px}
+h2{font-size:21px;letter-spacing:-.6px;margin:0 0 17px}.now{font-size:25px;font-weight:850;line-height:1.3;margin:0 0 8px;overflow-wrap:anywhere}
+.next{color:#b7bbd5;font-size:14px}.ctrl{display:flex;gap:9px;flex-wrap:wrap;margin-top:25px}
+.info{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #343956;padding:9px 0;gap:15px}.info:last-child{border:0}.info b{font-size:14px}.info span{font-size:14px;color:#b1bad6;text-align:right}
+.input{display:block;border:1px solid #454a70;border-radius:11px;padding:12px 13px;width:100%;background:#0e1129;color:#fff;min-width:0}
+.row{display:flex;align-items:center;gap:10px}.row .input{flex:1}.spaced{margin-top:20px}
+ul{padding-left:21px;margin-bottom:0}li{margin:8px 0;color:#c1c5e0;font-size:14px;overflow-wrap:anywhere}
+#message{min-height:25px;font-size:13px;margin-top:15px;color:#94eddf}#message.error{color:#ffb5c1}
+.hint{padding:18px 22px;border:1px solid #2d3255;border-radius:15px;background:#121630;margin-bottom:22px;color:#bec4df;font-size:14px;line-height:1.8}
+.hidden{display:none!important}.chip{display:inline-flex;align-items:center;gap:7px;border-radius:100px;padding:6px 11px;background:#252242;border:1px solid #5b507a;font-size:12px;font-weight:750;color:#e7d8ff}
+footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
+@media(max-width:750px){.grid{grid-template-columns:1fr}.panel{padding:19px}.row{flex-wrap:wrap}.row .input{min-width:100%}.hero{align-items:flex-start}}
+</style>
+</head>
+<body>
+<header><nav><a class="logo" href="/">♫ Neon<b>Beats</b></a><a class="go" href="/">← Powrót na stronę</a></nav></header>
+<main>
+<div class="hero"><div><p class="kicker">NeonBeats Web Control</p><h1>Twój serwer.<br>Twoje sterowanie.</h1><p class="muted">Bezpieczny panel muzyki — logowanie przez Discord.</p></div><div class="actions"><span class="chip" id="connection">● Łączenie…</span><button class="hidden" id="logout">Wyloguj</button></div></div>
+<section id="loginPanel" class="panel hidden"><h2>🔐 Zaloguj się przez Discord</h2><p class="muted">Panel działa tylko na serwerach, na których masz uprawnienie <b>Zarządzanie serwerem</b> lub <b>Administrator</b>. Nie podajesz hasła ani tokena bota na stronie.</p><p><a class="button primary" href="/auth/login">Zaloguj przez Discord</a></p></section>
+<section id="controlPanel" class="hidden">
+<div class="hint" id="hint">Aby sterować muzyką przez WWW, NeonBeats musi już być podłączony do kanału głosowego na wybranym serwerze. Możesz najpierw użyć <b>/play</b> na Discordzie.</div>
+<div class="panel" style="margin-bottom:18px"><label class="label" for="guild">Serwer Discord</label><select class="input" id="guild"></select></div>
+<div class="grid">
+<div class="stack">
+<section class="panel"><div class="label">MUSIC CONTROL</div><h2>🎶 Teraz gra</h2><p class="now" id="song">Nie odtwarza</p><p class="next" id="next">Następny: brak</p>
+<div class="ctrl"><button data-act="pause">⏸️ Pauza</button><button data-act="resume">▶️ Wznów</button><button data-act="skip">⏭️ Pomiń</button><button data-act="stop" class="danger">⏹️ Stop</button></div>
+<div class="ctrl"><button data-act="shuffle">🔀 Losuj</button><button data-act="repeat">🔁 Powtarzanie</button><button data-act="clear" class="danger">🗑️ Wyczyść kolejkę</button></div></section>
+<section class="panel"><h2>📋 Kolejka</h2><ol id="queue"><li>Brak pozycji</li></ol></section>
+</div>
+<div class="stack">
+<section class="panel"><h2>🎚️ Ustawienia</h2>
+<div class="info"><b>Status bota</b><span id="status">Nieznany</span></div>
+<div class="info"><b>Głośność</b><span id="volumeLabel">85%</span></div>
+<div class="row spaced"><input class="input" type="range" id="volume" min="0" max="150" step="5" value="85" aria-label="Głośność"><button id="saveVolume">Ustaw</button></div>
+<div class="info"><b>Powtarzanie</b><span id="repeat">Wyłączone</span></div>
+<div class="info"><b>Efekt DJ</b><span id="djLabel">off</span></div>
+<div class="row spaced"><select class="input" id="dj"><option value="off">Wyłączone</option><option value="bass">Bass Boost</option><option value="nightcore">Nightcore</option><option value="slowed">Slowed</option><option value="8d">8D</option><option value="echo">Echo</option><option value="club">Club</option></select><button id="saveDJ">Zastosuj</button></div>
+</section>
+<section class="panel"><h2>➕ Dodaj utwór YouTube</h2><label class="label" for="youtubeUrl">Publiczny link do filmu</label><div class="row"><input class="input" id="youtubeUrl" type="url" maxlength="500" placeholder="https://www.youtube.com/watch?v=…"><button class="primary" id="addVideo">Dodaj</button></div><p class="muted">NeonBeats pobiera dźwięk na ALTARE; strona nie pobiera ani nie hostuje plików.</p></section>
+<section class="panel"><h2>📻 Globalne radio</h2><label class="label" for="radioName">Dokładna nazwa stacji z katalogu NeonBeats</label><div class="row"><input class="input" id="radioName" maxlength="100" placeholder="Nazwa stacji"><button id="playRadio">Włącz</button></div></section>
+</div>
+</div>
+<p id="message" role="status" aria-live="polite"></p>
+</section>
+</main>
+<footer>NeonBeats Web Control • Wymaga połączenia z Cloudflare i ALTARE • Panel tylko dla uprawnionych administratorów serwera</footer>
+<script>
+(function(){
+ const $=id=>document.getElementById(id);
+ let selected='',signedIn=false;
+ function message(value,error=false){$('message').textContent=value;$('message').classList.toggle('error',error);}
+ async function api(path,options={}){
+  const r=await fetch(path,{credentials:'same-origin',cache:'no-store',...options});
+  let data;try{data=await r.json();}catch{throw Error('Nie można odczytać odpowiedzi serwera.');}
+  if(!r.ok)throw Error(data.error||'Błąd HTTP '+r.status);
+  return data;
+ }
+ async function send(action,value){
+  if(!selected)return message('Wybierz serwer Discord.',true);
+  message('Wysyłanie polecenia…');
+  try{
+   const data=await api('/api/guild/'+selected+'/control',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action,...(value===undefined?{}:{value})})});
+   message('Wysłano polecenie do NeonBeats. Oczekiwanie na odpowiedź…');
+   for(let i=0;i<8;i++){
+    await new Promise(r=>setTimeout(r,1600));
+    const cmd=await api('/api/command/'+data.id);
+    if(cmd.status==='done'){message('✅ '+(cmd.result||'Wykonano.'));await refresh();return;}
+    if(cmd.status==='failed'){message('⚠️ '+(cmd.result||'Nie udało się wykonać polecenia.'),true);await refresh();return;}
+   }
+   message('Polecenie w kolejce. Odśwież panel za chwilę.');
+  }catch(e){message('⚠️ '+e.message,true);}
+ }
+ function render(bot){
+  $('status').textContent=bot.connected?'Połączony z głosem • '+bot.playerStatus:'Bot na serwerze (bez połączenia głosowego)';
+  $('song').textContent=bot.nowPlaying||'Nic nie gra';
+  $('next').textContent='Następny: '+(bot.queue[0]||'brak');
+  $('volume').value=String(bot.volume);$('volumeLabel').textContent=bot.volume+'%';
+  $('repeat').textContent=bot.repeat==='one'?'Jeden utwór':'Wyłączone';
+  $('djLabel').textContent=bot.dj;$('dj').value=bot.dj;
+  $('queue').replaceChildren();
+  if(!bot.queue.length){const li=document.createElement('li');li.textContent='Brak kolejnych utworów';$('queue').append(li);}
+  else bot.queue.forEach(title=>{const li=document.createElement('li');li.textContent=title;$('queue').append(li);});
+  document.querySelectorAll('[data-act],#saveVolume,#saveDJ,#addVideo,#playRadio').forEach(button=>{button.disabled=!bot.connected;});
+  $('connection').textContent=bot.connected?'● Bot połączony':'● Czeka na kanał głosowy';
+ }
+ async function refresh(){
+  if(!selected)return;
+  try{const data=await api('/api/guild/'+selected);render(data.bot);}
+  catch(e){$('connection').textContent='● Połączenie niedostępne';message(e.message,true);}
+ }
+ async function init(){
+  try{
+   const data=await api('/api/me');
+   signedIn=true;
+   $('loginPanel').classList.add('hidden');$('controlPanel').classList.remove('hidden');$('logout').classList.remove('hidden');
+   const guilds=data.guilds.filter(g=>g.botOnline);
+   if(!guilds.length){$('connection').textContent='● Brak połączonych serwerów';$('guild').innerHTML='<option>Brak serwerów</option>';$('hint').textContent='Brak serwerów z aktywnym mostem NeonBeats. Upewnij się, że bot jest na Twoim serwerze i skonfiguruj połączenie Cloudflare ↔ ALTARE.';return;}
+   $('guild').replaceChildren();
+   guilds.forEach(g=>{const option=document.createElement('option');option.value=g.id;option.textContent=g.name;$('guild').append(option);});
+   selected=guilds[0].id;await refresh();
+  }catch(e){
+   $('connection').textContent='● Wymagane logowanie';
+   $('loginPanel').classList.remove('hidden');$('controlPanel').classList.add('hidden');
+  }
+ }
+ $('guild').addEventListener('change',event=>{selected=event.target.value;void refresh();});
+ $('volume').addEventListener('input',event=>$('volumeLabel').textContent=event.target.value+'%');
+ document.querySelectorAll('[data-act]').forEach(b=>b.addEventListener('click',()=>void send(b.dataset.act)));
+ $('saveVolume').addEventListener('click',()=>void send('volume',Number($('volume').value)));
+ $('saveDJ').addEventListener('click',()=>void send('dj',$('dj').value));
+ $('addVideo').addEventListener('click',()=>{const url=$('youtubeUrl').value.trim();if(!url)return message('Wpisz link YouTube.',true);void send('play',url);});
+ $('playRadio').addEventListener('click',()=>{const name=$('radioName').value.trim();if(!name)return message('Podaj nazwę stacji.',true);void send('radio',name);});
+ $('logout').addEventListener('click',async()=>{await api('/auth/logout',{method:'POST',headers:{'content-type':'application/json'}}).catch(()=>{});location.href='/dashboard.html';});
+ void init();
+ setInterval(()=>{if(signedIn&&selected)void refresh();},7000);
+})();
+</script>
+</body></html>
