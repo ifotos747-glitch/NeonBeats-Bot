@@ -49,6 +49,10 @@ async function botOnline(env,guildId){
 }
 async function handle(request,env){
  const url=new URL(request.url),pathname=url.pathname;
+ if(pathname==='/dashboard'&&request.method==='GET'){
+  const assetUrl=new URL('/dashboard.html',request.url);
+  return env.ASSETS.fetch(new Request(assetUrl,request));
+ }
  if(pathname==='/api/health')return json({ok:true,service:'NeonBeats Web Control',time:now()});
  if(pathname==='/auth/login'&&request.method==='GET'){
   if(!env.DISCORD_CLIENT_ID||!env.DISCORD_CLIENT_SECRET||!appOrigin(env))return fail('Nie skonfigurowano OAuth Discord.',503);
@@ -68,7 +72,7 @@ async function handle(request,env){
   const token=await response.json(),user=await apiDiscord('/users/@me',token.access_token);
   const id=crypto.randomUUID(),expires=now()+Math.min(Number(token.expires_in||3600),86400)*SEC;
   await env.DB.prepare('INSERT INTO sessions(id,user_id,access_token,expires_at) VALUES(?,?,?,?)').bind(id,user.id,token.access_token,expires).run();
-  const h=new Headers({location:'/dashboard.html','cache-control':'no-store'});
+  const h=new Headers({location:'/dashboard','cache-control':'no-store'});
   h.append('set-cookie',COOKIE+'='+id+'; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age='+Math.floor((expires-now())/SEC));
   return new Response(null,{status:302,headers:h});
  }
