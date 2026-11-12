@@ -5,6 +5,7 @@ const {randomInt}=require('node:crypto');
 const {pipeHttpAudio}=require('./network');
 const {RadioHealth}=require('./radio-health');
 const {bufferPcm,bufferLivePcm}=require('./audio-buffer');
+const {bufferOpusRadio}=require('./opus-buffer');
 const {spawnYouTube,cleanYtdlpError,selectAudioProfile,isPyInstallerError}=require('./youtube');
 const {joinVoiceChannel,createAudioPlayer,createAudioResource,AudioPlayerStatus,VoiceConnectionStatus,NoSubscriberBehavior,StreamType,entersState}=require('@discordjs/voice');
 const {MUSIC,ffmpegPath,IDLE_MINUTES}=require('./config');
@@ -29,6 +30,7 @@ function audioBufferMs(track,env=process.env){
  const n=Number(raw);
  return Number.isFinite(n)?Math.max(0,Math.min(radio?3000:800,Math.round(n))):(radio?1000:280);
 }
+function radioCodec(env=process.env){return String(env.NEONBEATS_RADIO_CODEC||'pcm').trim().toLowerCase()==='opus'?'opus':'pcm';}
 function shouldRetryYouTube(track,message){
  if(track?.kind!=='youtube-link'||(track.compatRetries||0)>=2)return false;
  if(isPyInstallerError(message)||/rozpakować bibliotek|\bPYI\b|\bkod:\s*255\b/i.test(String(message||'')))return false;
@@ -41,7 +43,7 @@ class MusicSession{
   this.guildId=guild.id;this.channelId=voiceChannel.id;this.textChannel=textChannel;
   this.queue=[];this.current=null;this.volume=85;this.autodj=false;this.autodjIndex=0;
   this.alwaysOn=null;this.dj=store.read(guild.id).dj;
-  this.process=null;this.ytProcess=null;this.netAbort=null;this.radioBuffer=null;this.radioStats=null;this.radioHealth=null;this.timer=null;this.retry=null;this.startupTimer=null;this.watchdog=null;this.blockUntil=0;
+  this.process=null;this.ytProcess=null;this.netAbort=null;this.radioBuffer=null;this.radioStats=null;this.radioHealth=null;this.radioOpus=false;this.timer=null;this.retry=null;this.startupTimer=null;this.watchdog=null;this.blockUntil=0;
   this.lastError='';this.closed=false;this.starting=false;this.retryCount=0;
   this.panelFactory=null;this.panelMessage=null;this.panelChannelId=null;this.panelUpdate=null;this.panelDirty=false;this.panelLastEdit=0;
   this.repeatMode='off';this.skipRequested=false;this.playedCount=0;this.playingSince=0;
@@ -136,7 +138,17 @@ class MusicSession{
  skip(){if(!this.current)return false;this.skipRequested=true;this.cleanProcess();if(!this.player.stop(true))this.onIdle();return true;}
  pause(){const ok=this.player.pause();if(ok)void this.showControlPanel(this.current);return ok;}
  resume(){const ok=this.player.unpause();if(ok)void this.showControlPanel(this.current);return ok;}
- setVolume(percent){this.volume=percent;if(this.resource?.volume)this.resource.volume.setVolume(percent/100);void this.showControlPanel(this.current);}
+ setVolume(percent){
+  this.volume=percent;
+  if(this.resource?.volume)this.resource.volume.setVolume(percent/100);
+  else if(this.radioOpus&&this.current){
+   // In Opus radio mode FFmpeg applies volume before encoding. Restart the
+   // current station so live volume controls remain functional.
+   if(!this.current.continuous)this.queue.unshift({...this.current});
+   this.skip();
+  }
+  void this.showControlPanel(this.current);
+ }
  toggleRepeat(){this.repeatMode=this.repeatMode==='one'?'off':'one';void this.showControlPanel(this.current);return this.repeatMode;}
  shuffleQueue(){
   if(this.queue.length<2)return false;
@@ -266,6 +278,8 @@ class MusicSession{
   // Preserve native FFmpeg handling of HLS/playlist manifests.
   const viaYouTube=track.kind==='youtube-link';
   const liveRadio=track.kind==='radio'||track.kind==='stream';
+  const opusRadio=liveRadio&&radioCodec()==='opus';
+  this.radioOpus=opusRadio;
   const viaNode=track.kind!=='file'&&!viaYouTube&&!/\.(?:m3u8|m3u|pls)(?:$|[?#])/i.test(track.source);
   const input=track.kind==='file'?['-i',path.join(MUSIC,track.source)]
     :(viaNode||viaYouTube)?['-i','pipe:0']
@@ -273,8 +287,13 @@ class MusicSession{
   const premium=require('./premium');
   const allowedDJ=premium.PREMIUM_DJ.has(this.dj)&&!premium.status(this.guildId).active?'off':this.dj;
   const filter=filterFor(allowedDJ);
-  const args=['-nostdin','-hide_banner','-loglevel',liveRadio?'warning':'error','-threads','2','-filter_threads','1',...input,'-vn','-sn','-dn',...(filter?['-af',filter]:[]),
-    '-ac','2','-ar','48000','-f','s16le','pipe:1'];
+  const radioFilter=opusRadio?[filter,'volume='+Math.max(0,Math.min(1.5,this.volume/100)).toFixed(3)].filter(Boolean).join(','):filter;
+  const outputArgs=opusRadio?
+   ['-ac','2','-ar','48000','-c:a','libopus','-application','audio','-frame_duration','20',
+    '-b:a','128k','-vbr','on','-f','opus','pipe:1']:
+   ['-ac','2','-ar','48000','-f','s16le','pipe:1'];
+  const args=['-nostdin','-hide_banner','-loglevel',liveRadio?'warning':'error','-threads','2','-filter_threads','1',
+   ...input,'-vn','-sn','-dn',...(radioFilter?['-af',radioFilter]:[]),...outputArgs];
   const child=spawn(ffmpegPath(),args,{stdio:[(viaNode||viaYouTube)?'pipe':'ignore','pipe','pipe'],windowsHide:true});
   this.process=child;this.radioHealth=liveRadio?new RadioHealth():null;
   let bytes=0,stderr='',lastPcm=Date.now();
@@ -297,9 +316,13 @@ class MusicSession{
   };
   let inputPcm=child.stdout;
   this.radioStats=null;
-  if(liveRadio){
-   // Real-time jitter buffer: keep a small amount of decoded audio throughout
-   // playback and inject short silence on underruns instead of dropping voice.
+  if(opusRadio){
+   // Native libopus runs inside FFmpeg, and OggDemuxer extracts Opus packets.
+   // No JS Opus encoder or PCM volume transformer in this opt-in comparison.
+   this.radioBuffer=bufferOpusRadio(child.stdout,startVoice,{milliseconds:prebufferMs});
+   this.radioStats=this.radioBuffer.stats;
+   inputPcm=this.radioBuffer.stream;
+  }else if(liveRadio){
    this.radioBuffer=bufferLivePcm(child.stdout,startVoice,{
     milliseconds:prebufferMs,
     recoveryMs:Math.min(700,Math.max(250,Math.round(prebufferMs/2)))
@@ -309,8 +332,11 @@ class MusicSession{
   }else if(buffered){
    inputPcm=bufferPcm(child.stdout,startVoice,{milliseconds:prebufferMs});
   }
-  this.resource=createAudioResource(inputPcm,{inputType:StreamType.Raw,inlineVolume:true,metadata:track});
-  this.resource.volume.setVolume(this.volume/100);
+  this.resource=createAudioResource(inputPcm,{
+   inputType:opusRadio?StreamType.Opus:StreamType.Raw,
+   inlineVolume:!opusRadio,metadata:track
+  });
+  if(this.resource.volume)this.resource.volume.setVolume(this.volume/100);
   if(!liveRadio&&!buffered)this.player.play(this.resource);
   // Recover from a stuck network/YouTube stream, not from ordinary pauses.
   if(track.kind!=='file'){
@@ -341,4 +367,4 @@ function ensureSession(guild,voiceChannel,textChannel){
  if(!s){s=new MusicSession(guild,voiceChannel,textChannel);sessions.set(guild.id,s);}
  s.textChannel=textChannel;return s;
 }
-module.exports={MusicSession,sessions,ensureSession,clean,MAX_QUEUE,MAX_MISSED_FRAMES,audioBufferMs,retryRadioTrack,shouldRetryYouTube};
+module.exports={MusicSession,sessions,ensureSession,clean,MAX_QUEUE,MAX_MISSED_FRAMES,audioBufferMs,retryRadioTrack,radioCodec,shouldRetryYouTube};
