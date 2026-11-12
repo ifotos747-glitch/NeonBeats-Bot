@@ -143,6 +143,8 @@ async function slash(i){
    '\n24/7: '+(d.alwaysOn?.mode||'wyłączony')+'\nDJ: '+d.dj+
    '\nBufor radia: '+audioBufferMs({kind:'radio'})+' ms | bufor YouTube: '+audioBufferMs({kind:'youtube-link'})+' ms'+
    '\nTolerancja krótkich przerw: '+MAX_MISSED_FRAMES*20+' ms'+
+   (s?.radioStats?'\n📻 Radio live: bufor '+s.radioStats.bufferedMs+' ms (maks. '+s.radioStats.peakBufferedMs+' ms)'+
+    '\n📉 Niedobory audio: '+s.radioStats.underruns+' | cisza ochronna: '+s.radioStats.silenceMs+' ms':'')+
    (s?.lastError?'\nOstatni błąd: '+clean(s.lastError):''))]});
  }
  if(n==='files')return i.reply({content:'🎵 Pliki: '+(musicFiles().map(clean).join(', ')||'Brak'),...hidden});
