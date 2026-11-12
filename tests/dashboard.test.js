@@ -14,7 +14,7 @@ test('Web Control dashboard inline JavaScript parses cleanly',()=>{
 });
 
 test('Premium dashboard retains music and owner-controlled entitlements',()=>{
- for(const id of ['loginPanel','controlPanel','guild','cover','radioCover','searchResults','historyList','savedLists','addPlaylist','saveListButton','logout','visualizer','vizBars','vizStatus','radioSearchQuery','radioSearchButton','radioSearchResults','djDescription','premiumPanel','premiumStatus','premiumActivate','premiumRevoke','premiumCheck','premiumDays','premiumPlaylists','premiumFavorites']){
+ for(const id of ['loginPanel','controlPanel','guild','cover','radioCover','searchResults','historyList','savedLists','addPlaylist','saveListButton','logout','visualizer','vizBars','vizStatus','radioSearchQuery','radioSearchButton','radioSearchResults','djDescription','premiumPanel','premiumStatus','premiumActivate','premiumRevoke','premiumCheck','premiumDays','premiumPlaylists','premiumFavorites','premiumAdminCenter','premiumAdminLoad','premiumAdminRows','premiumAdminNext','premiumAdminPrev']){
   assert.ok(html.includes('id="'+id+'"'),'Missing required Web Control element: '+id);
  }
 });
