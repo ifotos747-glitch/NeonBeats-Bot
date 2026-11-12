@@ -28,13 +28,23 @@ function ytDlpPath(){
  if(process.env.YTDLP_PATH)return process.env.YTDLP_PATH;
  return fs.existsSync(LOCAL)?LOCAL:null;
 }
-function youtubeArgs(url,download){
+const AUDIO_PROFILES={
+ default:'bestaudio/best',
+ m4a:'bestaudio[ext=m4a]/bestaudio[acodec^=mp4a]/bestaudio/best',
+ webm:'bestaudio[ext=webm]/bestaudio[acodec=opus]/bestaudio/best'
+};
+function selectAudioProfile(attempt=0){
+ return ['default','m4a','webm'][Math.max(0,Math.min(2,Number(attempt)||0))];
+}
+function youtubeArgs(url,download,{profile='default'}={}){
+ if(!Object.hasOwn(AUDIO_PROFILES,profile))throw Error('Nieznany profil audio.');
+
  return [
   '--ignore-config','--no-playlist','--no-progress','--no-color',
   '--js-runtimes','node:'+process.execPath,
   '--socket-timeout','35','--retries','5','--fragment-retries','5','--extractor-retries','5',
   ...(process.env.YTDLP_FORCE_IPV4==='1'?['--force-ipv4']:[]),
-  '-f','bestaudio/best',
+  '-f',AUDIO_PROFILES[profile],
   ...(download?['-o','-']:['--skip-download','--print','%(title)s']),
   '--',normalizeYouTubeUrl(url)
  ];
@@ -97,10 +107,10 @@ function updateYtDlp(){
    });
  });
 }
-function spawnYouTube(url){
+function spawnYouTube(url,{profile='default'}={}){
  const bin=ytDlpPath();
  if(!bin)throw Error('Brak yt-dlp na ALTARE. Administrator: /youtube install.');
- return spawn(bin,youtubeArgs(url,true),{stdio:['ignore','pipe','pipe'],windowsHide:true});
+ return spawn(bin,youtubeArgs(url,true,{profile}),{stdio:['ignore','pipe','pipe'],windowsHide:true});
 }
 function diagnoseYouTube(url,{timeoutMs=45000}={}){
  const bin=ytDlpPath();
@@ -127,4 +137,4 @@ function diagnoseYouTube(url,{timeoutMs=45000}={}){
   timer.unref?.();
  });
 }
-module.exports={RELEASE,LOCAL,normalizeYouTubeUrl,ytDlpPath,youtubeArgs,cleanYtdlpError,installYtDlp,updateYtDlp,ytDlpVersion,spawnYouTube,diagnoseYouTube};
+module.exports={RELEASE,LOCAL,normalizeYouTubeUrl,ytDlpPath,selectAudioProfile,youtubeArgs,cleanYtdlpError,installYtDlp,updateYtDlp,ytDlpVersion,spawnYouTube,diagnoseYouTube};

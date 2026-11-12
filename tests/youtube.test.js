@@ -1,6 +1,6 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
-const {normalizeYouTubeUrl,youtubeArgs,cleanYtdlpError}=require('../src/youtube');
+const {normalizeYouTubeUrl,youtubeArgs,selectAudioProfile,cleanYtdlpError}=require('../src/youtube');
 test('accepts video, shorts and music links',()=>{
  const id='dQw4w9WgXcQ',expected='https://www.youtube.com/watch?v='+id;
  for(const url of [
@@ -38,4 +38,17 @@ test('YouTube compatibility options are bounded and secure',()=>{
  assert.deepEqual(args.slice(args.indexOf('--retries'),args.indexOf('--retries')+2),['--retries','5']);
  assert.ok(args.includes('--ignore-config'));
  assert.ok(args.includes('--no-playlist'));
+});
+
+test('remix retries use alternate yt-dlp audio formats',()=>{
+ const url='https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+ assert.deepEqual([0,1,2,3].map(selectAudioProfile),['default','m4a','webm','webm']);
+ const formats=[0,1,2].map(attempt=>{
+  const args=youtubeArgs(url,true,{profile:selectAudioProfile(attempt)});
+  return args[args.indexOf('-f')+1];
+ });
+ assert.equal(new Set(formats).size,3);
+ assert.match(formats[1],/m4a/);
+ assert.match(formats[2],/webm/);
+ assert.throws(()=>youtubeArgs(url,true,{profile:'unknown'}));
 });
