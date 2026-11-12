@@ -163,3 +163,7 @@ Wdrożenie: ALTARE — `src/premium.js`, `src/store.js`, `src/web-control.js`, `
 ## 3.7 — FASTSTREAM
 
 Optymalizacje dotyczą procesu na ALTARE: szybsze `/play`, niezależne per-serwer kolejki poleceń Web Control, rzadsze odświeżanie panelu Discord, bufor sieciowy PCM 280 ms i ograniczone automatyczne ponawianie radia. **Nie zmieniono `web-control/worker.js` ani `website/dashboard.html`** — Cloudflare nie wymaga nowego wdrożenia. Opcjonalny `NEONBEATS_PREBUFFER_MS` (0–800) pozwala dobrać bufor dla hostingu, domyślnie 280. Testy GitHub Actions nie zastępują odsłuchu na ALTARE.
+
+## 3.7.2 — RADIO COMPATIBILITY
+
+Komenda `/radio diagnoza` testuje teraz realną ścieżkę odtwarzania radia MP3 przez Node.js → FFmpeg `pipe:0`. Usuwa to mylące awarie `SIGSEGV` testu bezpośredniego HTTP FFmpeg na części hostingów. Wersja dotyczy bota na ALTARE, bez zmian Cloudflare. Wymień `src/diagnostics.js`, `package.json` i `index.js`.
