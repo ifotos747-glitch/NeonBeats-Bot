@@ -155,6 +155,13 @@ async function perform(client,cmd){
   default:throw Error('Nieobsługiwana operacja.');
  }
 }
+function scheduleGuildJob(chains,id,job){
+ const previous=chains.get(id)||Promise.resolve();
+ const next=previous.catch(()=>{}).then(job);
+ chains.set(id,next);
+ void next.finally(()=>{if(chains.get(id)===next)chains.delete(id);}).catch(()=>{});
+ return next;
+}
 function startWebControl(client,{fetchImpl=fetch,intervalMs=3000}={}){
  const base=(process.env.NEONBEATS_CONTROL_URL||'').replace(/\/$/,'');
  const secret=process.env.NEONBEATS_CONTROL_SECRET||'';
@@ -167,16 +174,12 @@ function startWebControl(client,{fetchImpl=fetch,intervalMs=3000}={}){
  function scheduleCommand(command){
   // Keep the commands in order for one guild, but never let a slow playlist
   // extraction on guild A block stop/skip on independent guild B.
-  const id=command.guild_id;
-  const previous=guildJobs.get(id)||Promise.resolve();
-  const next=previous.catch(()=>{}).then(async()=>{
+  void scheduleGuildJob(guildJobs,command.guild_id,async()=>{
    let status='done',result='';
    try{result=await perform(client,command);}catch(e){status='failed';result=String(e.message||e).slice(0,2000);}
    try{await request('/api/bridge/result',{id:command.id,status,result});}
    catch(e){console.warn('🌐 Web Control: nie zapisano wyniku '+String(e.message));}
   });
-  guildJobs.set(id,next);
-  void next.finally(()=>{if(guildJobs.get(id)===next)guildJobs.delete(id);}).catch(()=>{});
  }
  const request=async(path,data)=>{
   const response=await fetchImpl(base+path,{method:'POST',
@@ -197,4 +200,4 @@ function startWebControl(client,{fetchImpl=fetch,intervalMs=3000}={}){
  timer.unref?.();void tick();
  return()=>{stopped=true;clearInterval(timer);};
 }
-module.exports={safeSnapshot,perform,startWebControl};
+module.exports={safeSnapshot,perform,startWebControl,scheduleGuildJob};
