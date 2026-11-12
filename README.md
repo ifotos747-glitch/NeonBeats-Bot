@@ -146,3 +146,14 @@ Nowy `/status` oprócz dotychczasowych statystyk wyświetla dla aktywnego radia:
 W 3.7.5 nie zmieniano algorytmu audio ani rozmiarów buforów — wydanie dodaje **pomiar problemu** bez niepotrzebnych zmian w stabilnym odtwarzaniu. ALTARE: podmień `src/network.js`, `src/player.js`, `src/bot.js`, dodaj `src/radio-health.js`, zaktualizuj `package.json` i `index.js`. Zachowaj `.env`, `data/`, `music/`, `bin/`. Cloudflare/D1 nie wymaga nowego wdrożenia.
 
 Po restarcie posłuchaj tej samej stacji przez 10 minut i uruchom `/status` raz przed zauważonym zacięciem i drugi raz tuż po nim. Podaj szczególnie liczbę ostrzeżeń FFmpeg i nowych przerw odczytu MP3; sprawdź w osobnym teście jedną z pozostałych stacji globalnych, aby wykluczyć charakterystykę konkretnego MP3.
+
+## NeonBeats 3.7.6 — NATIVE OPUS A/B (eksperymentalne)
+
+Wspólny objaw: Radio Club Dj i ESKA lekko zacinają się, podczas gdy `/testaudio` (lokalny plik) działa płynnie. Raport 3.7.5 pokazał duży zapas PCM, brak niedoborów, brak błędów FFmpeg i brak dłuższych przerw HTTP. Nie wskazał przyczyny, dlatego nowa wersja udostępnia **porównanie dwóch torów kodowania radia** zamiast kolejnego zwiększenia bufora.
+
+- **Domyślnie** `NEONBEATS_RADIO_CODEC=pcm` — dotychczasowe FFmpeg → 48 kHz stereo PCM → `@discordjs/voice` / `opusscript`, pełna zgodność z poprzednimi wersjami.
+- **Tryb porównawczy** `NEONBEATS_RADIO_CODEC=opus` — FFmpeg dekoduje MP3 i koduje bezpośrednio do 128 kb/s Ogg/Opus (libopus, 48 kHz stereo, ramki 20 ms); NeonBeats buforuje skompresowany strumień przy starcie i przekazuje go jako `StreamType.OggOpus`, który Discord Voice demultipleksuje bez ponownego kodowania. Zmiana działa tylko dla `radio`/`stream`; YouTube i lokalne pliki są nietknięte.
+- Tryb Opus używa `-af volume=...` FFmpeg zamiast JS inline volume; zmiana `/volume` restartuje bieżącą stację. Pozostałe efekty DJ nadal są wykonywane w FFmpeg. Jeśli FFmpeg lub Discord zwróci błąd Opus, sesja automatycznie wraca do PCM. W razie problemów ustaw PCM ręcznie i zrestartuj bota.
+- `/status` podaje **Tryb radia: PCM / OPUS NATYWNY / PCM (powrót po błędzie)** oraz statystyki właściwego bufora.
+
+**ALTARE:** wymień `src/player.js`, `src/opus-buffer.js` (nowy), `src/bot.js`, `package.json`, `index.js` z GitHub. Zostaw `.env`, `data/`, `music/`, `bin/` bez nadpisania; w swoim prywatnym `.env` dodaj `NEONBEATS_RADIO_CODEC=opus`, a następnie restart. Porównaj te same dwie stacje przez 10 minut z trybem PCM. Jeśli nadal tnie, odeślij `/status` i opis częstotliwości; nie deklarujemy usunięcia zakłóceń bez odsłuchu na ALTARE. Nie potrzeba zmian Cloudflare/SQL ani instalacji nowych pakietów npm dla tej funkcji — OggDemuxer dostarcza obecny `@discordjs/voice`.
