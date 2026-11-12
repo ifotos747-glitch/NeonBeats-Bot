@@ -76,7 +76,7 @@ test('playlist yt-dlp uses configured temporary directory',async()=>{
   const spawnMock=(_bin,_args,options)=>{
    assert.equal(options.env.TMPDIR,dir);
    const p=new EventEmitter();p.stdout=new PassThrough();p.stderr=new PassThrough();p.kill=()=>true;
-   process.nextTick(()=>{p.stdout.end(JSON.stringify({id:'dQw4w9WgXcQ',title:'Remix'})+'\\n');p.stderr.end();p.emit('close',0,null);});
+   process.nextTick(()=>{p.stdout.end(JSON.stringify({id:'dQw4w9WgXcQ',title:'Remix'})+'\n');p.stderr.end();p.emit('close',0,null);});
    return p;
   };
   const result=await loadYoutubePlaylist('https://www.youtube.com/playlist?list=PL1234567890',{spawnProcess:spawnMock});
