@@ -3,7 +3,7 @@ require('dotenv').config();
 const {envCheck, VERSION}=require('./src/config');
 async function main(){
   envCheck();
-  console.log('🎧 NeonBeats Bot '+VERSION+' — NATIVE OPUS A/B');
+  console.log('🎧 NeonBeats Bot '+VERSION+' — OPUS FRAME BUFFER');
   await require('./src/register').register();
   await require('./src/bot').start();
 }
