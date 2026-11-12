@@ -134,3 +134,10 @@ Sesja przeglądarkowa trwa do **90 dni bez aktywności** i odnawia się przy kor
 Nowe funkcje Web Control: przeciąganie i zmiana kolejności elementów kolejki (także strzałki dla telefonów), usuwanie poszczególnych utworów, 100 ulubionych filmów YouTube na serwer, statystyki odtworzeń i centrum administratora dla serwerów, którymi zalogowany użytkownik może zarządzać przez Discord OAuth2. W centrum nie ma zarządzania kontami Discord ani uprawnień globalnego właściciela bota.
 
 Pliki aktualizacji ALTARE: `src/store.js`, `src/web-control.js`, `index.js`, `package.json`. Cloudflare: `web-control/worker.js`, `website/dashboard.html`. Nie zmieniaj sekretów ani lokalnych danych w `data/`; historia, statystyki i ulubione są zapisywane w istniejących JSON na ALTARE. Nie potrzeba SQL. Statystyki rozpoczynają naliczanie z wdrożeniem 3.3.
+
+## 3.4 — MUSIC EXPERIENCE
+
+- **Neon Visualizer**: animowane paski CSS aktywne przy stanie `playing`, zatrzymane przy pauzie. Jest to wizualizacja stanu odtwarzania, nie pomiar FFT rzeczywistego audio Discord (przeglądarka nie odbiera PCM). Obsługiwane ustawienie systemowe `prefers-reduced-motion`.
+- **DJ**: nowe presety FFmpeg `deep`, `vocal`, `soft` obok istniejących. Zmiana presetów może zrestartować aktualnie odtwarzany utwór.
+- **Wyszukiwarka radia**: komenda `radio-search` odpytuje katalog globalny na ALTARE (maks. 15 wyników) i zwraca wyłącznie nazwę oraz identyfikator stacji, bez prywatnych danych i adresów streamów. Kliknięcie odtwarza znalezioną stację. Potrzebne aktywne połączenie bota z kanałem głosowym.
+- **Wdrożenie**: zaktualizuj `website/dashboard.html` i `web-control/worker.js` na Cloudflare oraz `src/effects.js`, `src/web-control.js`, `package.json`, `index.js` na ALTARE. Pozostaw `.env`, `data/`, `music/`, `bin/`. Nie potrzeba zmian SQL ani sekretów.
