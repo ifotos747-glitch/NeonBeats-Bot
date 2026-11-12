@@ -5,6 +5,10 @@ const COOKIE='nb_session';
 const json=(value,status=200)=>new Response(JSON.stringify(value),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-content-type-options':'nosniff'}});
 const fail=(message,status=400)=>json({error:message},status);
 const SEC=1000;
+const SESSION_TTL=90*24*60*60*SEC; // Renewed on activity; Discord tokens are separately refreshed.
+const REFRESH_MARGIN=5*60*SEC;
+const COOKIE_MAX_AGE=Math.floor(SESSION_TTL/SEC);
+function sessionCookie(id){return COOKIE+'='+id+'; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age='+COOKIE_MAX_AGE;}
 const now=()=>Date.now();
 const validGuild=id=>/^\d{15,24}$/.test(String(id||''));
 function cookie(request,key){return (request.headers.get('cookie')||'').split(';').map(s=>s.trim()).find(s=>s.startsWith(key+'='))?.slice(key.length+1)||'';}
@@ -22,11 +26,46 @@ async function apiDiscord(route,token){
  if(!r.ok)throw Error('DISCORD_'+r.status);
  return r.json();
 }
+async function refreshDiscordToken(env,id,stored,oldValue){
+ const form=new URLSearchParams({client_id:env.DISCORD_CLIENT_ID,client_secret:env.DISCORD_CLIENT_SECRET,grant_type:'refresh_token',refresh_token:stored.refresh_token});
+ const r=await fetch('https://discord.com/api/v10/oauth2/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:form});
+ if(!r.ok)throw Error('DISCORD_REFRESH_'+r.status);
+ const token=await r.json();
+ if(!token.access_token||!token.refresh_token)throw Error('DISCORD_REFRESH_INCOMPLETE');
+ const data={access_token:token.access_token,refresh_token:token.refresh_token,access_expires_at:now()+Math.max(60,Number(token.expires_in||3600))*SEC};
+ const update=await env.DB.prepare('UPDATE sessions SET access_token=? WHERE id=? AND access_token=?').bind(JSON.stringify(data),id,oldValue).run();
+ if(update.meta?.changes===0){
+  // Another request already refreshed and rotated this Discord token.
+  const latest=await env.DB.prepare('SELECT access_token FROM sessions WHERE id=?').bind(id).first();
+  if(latest){try{const current=JSON.parse(latest.access_token);if(current.access_token)return current;}catch{}}
+ }
+ return data;
+}
 async function session(request,env){
  const id=cookie(request,COOKIE);
  if(!/^[a-f0-9-]{36}$/.test(id))return null;
  const s=await env.DB.prepare('SELECT user_id,access_token,expires_at FROM sessions WHERE id=?').bind(id).first();
- return s&&s.expires_at>now()?{...s,id}:null;
+ if(!s||s.expires_at<=now())return null;
+ let token;
+ try{token=JSON.parse(s.access_token);}catch{
+  // Legacy sessions did not save Discord refresh tokens and require one re-login.
+  return null;
+ }
+ if(!token||typeof token.access_token!=='string'||typeof token.refresh_token!=='string')return null;
+ if(!Number.isFinite(token.access_expires_at))return null;
+ if(token.access_expires_at<=now()+REFRESH_MARGIN){
+  try{token=await refreshDiscordToken(env,id,token,s.access_token);}
+  catch(e){
+   // A concurrent request may have refreshed first: check the latest stored token.
+   const latest=await env.DB.prepare('SELECT access_token FROM sessions WHERE id=?').bind(id).first();
+   if(!latest||latest.access_token===s.access_token)return null;
+   try{token=JSON.parse(latest.access_token);}catch{return null;}
+   if(!token.access_token||token.access_expires_at<=now())return null;
+  }
+ }
+ if(s.expires_at<now()+SESSION_TTL-24*60*60*SEC)
+  await env.DB.prepare('UPDATE sessions SET expires_at=? WHERE id=?').bind(now()+SESSION_TTL,id).run();
+ return {id,user_id:s.user_id,access_token:token.access_token};
 }
 async function authorizedGuilds(sessionInfo){
  const guilds=await apiDiscord('/users/@me/guilds',sessionInfo.access_token);
@@ -70,10 +109,12 @@ async function handle(request,env){
   const response=await fetch('https://discord.com/api/v10/oauth2/token',{method:'POST',headers:{'content-type':'application/x-www-form-urlencoded'},body:form});
   if(!response.ok)return fail('Discord odrzucił logowanie.',401);
   const token=await response.json(),user=await apiDiscord('/users/@me',token.access_token);
-  const id=crypto.randomUUID(),expires=now()+Math.min(Number(token.expires_in||3600),86400)*SEC;
-  await env.DB.prepare('INSERT INTO sessions(id,user_id,access_token,expires_at) VALUES(?,?,?,?)').bind(id,user.id,token.access_token,expires).run();
+  if(!token.refresh_token)return fail('Discord nie zwrócił tokenu odnawiania.',502);
+  const id=crypto.randomUUID(),expires=now()+SESSION_TTL;
+  const stored=JSON.stringify({access_token:token.access_token,refresh_token:token.refresh_token,access_expires_at:now()+Math.max(60,Number(token.expires_in||3600))*SEC});
+  await env.DB.prepare('INSERT INTO sessions(id,user_id,access_token,expires_at) VALUES(?,?,?,?)').bind(id,user.id,stored,expires).run();
   const h=new Headers({location:'/dashboard','cache-control':'no-store'});
-  h.append('set-cookie',COOKIE+'='+id+'; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age='+Math.floor((expires-now())/SEC));
+  h.append('set-cookie',sessionCookie(id));
   return new Response(null,{status:302,headers:h});
  }
  if(pathname==='/auth/logout'&&request.method==='POST'){
@@ -137,7 +178,14 @@ async function handle(request,env){
 export default {async fetch(request,env){
  try{
   if(!env.DB)return fail('Brak powiązania z bazą D1.',503);
-  return await handle(request,env);
+  const response=await handle(request,env);
+  // Sliding browser cookie for successfully authenticated panel API requests.
+  const path=new URL(request.url).pathname;
+  if(path.startsWith('/api/')&&path!=='/api/health'&&(response.status===200||response.status===202)){
+   const id=cookie(request,COOKIE);
+   if(/^[a-f0-9-]{36}$/.test(id))response.headers.append('set-cookie',sessionCookie(id));
+  }
+  return response;
  }catch(e){
   console.error('NeonBeats Web Control',e);
   return fail('Błąd serwera. Sprawdź konfigurację Cloudflare.',500);
