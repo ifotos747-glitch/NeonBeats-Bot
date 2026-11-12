@@ -1,6 +1,7 @@
 'use strict';
 const fs=require('node:fs'),path=require('node:path');
 const {spawn}=require('node:child_process');
+const {randomInt}=require('node:crypto');
 const {pipeHttpAudio}=require('./network');
 const {spawnYouTube,cleanYtdlpError,selectAudioProfile,isPyInstallerError}=require('./youtube');
 const {joinVoiceChannel,createAudioPlayer,createAudioResource,AudioPlayerStatus,VoiceConnectionStatus,NoSubscriberBehavior,StreamType,entersState}=require('@discordjs/voice');
@@ -22,13 +23,14 @@ class MusicSession{
   this.process=null;this.ytProcess=null;this.netAbort=null;this.timer=null;this.retry=null;this.startupTimer=null;this.blockUntil=0;
   this.lastError='';this.closed=false;this.starting=false;this.retryCount=0;
   this.panelFactory=null;this.panelMessage=null;this.panelChannelId=null;this.panelUpdate=Promise.resolve();
+  this.repeatMode='off';this.skipRequested=false;this.playedCount=0;
   this.connection=joinVoiceChannel({channelId:voiceChannel.id,guildId:guild.id,adapterCreator:guild.voiceAdapterCreator,selfDeaf:true,selfMute:false});
   this.player=createAudioPlayer({behaviors:{noSubscriber:NoSubscriberBehavior.Pause}});
   this.connection.subscribe(this.player);
   this.player.on(AudioPlayerStatus.Idle,()=>this.onIdle());
   this.player.on(AudioPlayerStatus.Playing,()=>{
    clearTimeout(this.startupTimer);this.startupTimer=null;this.retryCount=0;
-   if(this.current)void this.showControlPanel(this.current);
+   if(this.current){this.playedCount++;void this.showControlPanel(this.current);}
   });
   this.player.on('error',e=>this.fail('Discord Voice: '+e.message));
   this.connection.on('error',e=>this.fail('Połączenie głosowe: '+e.message));
@@ -41,7 +43,7 @@ class MusicSession{
  showControlPanel(track){
   if(!this.panelFactory||!this.textChannel?.send)return Promise.resolve();
   const channel=this.textChannel;
-  const payload=this.panelFactory(track);
+  const payload=this.panelFactory(track,this);
   this.panelUpdate=this.panelUpdate.catch(()=>{}).then(async()=>{
    if(this.closed)return;
    if(this.panelMessage&&this.panelChannelId===channel.id){
@@ -79,6 +81,7 @@ class MusicSession{
   if(this.queue.length+tracks.length>MAX_QUEUE)throw Error('Limit kolejki 100 utworów.');
   this.queue.push(...tracks);
   this.clearTimer();
+  if(this.current)void this.showControlPanel(this.current);
   if(!this.current&&!this.starting){
    clearTimeout(this.retry);this.retry=null;void this.startNext();
   }else if(this.current?.continuous)this.skip();
@@ -88,19 +91,35 @@ class MusicSession{
   if(this.closed)throw Error('Bot nie jest połączony.');
   if(this.queue.length>=MAX_QUEUE)throw Error('Kolejka osiągnęła limit 100.');
   this.queue.push(track);this.clearTimer();
+  if(this.current)void this.showControlPanel(this.current);
   if(!this.current&&!this.starting){clearTimeout(this.retry);this.retry=null;void this.startNext();}
   else if(this.current?.continuous)this.skip();
   return this.queue.length;
  }
  replace(track){this.queue=[track];this.autodj=false;this.blockUntil=0;this.clearTimer();
    clearTimeout(this.retry);this.retry=null;if(this.current)this.skip();else void this.startNext();}
- skip(){if(!this.current)return false;this.cleanProcess();if(!this.player.stop(true))this.onIdle();return true;}
- pause(){return this.player.pause();}
- resume(){return this.player.unpause();}
- setVolume(percent){this.volume=percent;if(this.resource?.volume)this.resource.volume.setVolume(percent/100);}
+ skip(){if(!this.current)return false;this.skipRequested=true;this.cleanProcess();if(!this.player.stop(true))this.onIdle();return true;}
+ pause(){const ok=this.player.pause();if(ok)void this.showControlPanel(this.current);return ok;}
+ resume(){const ok=this.player.unpause();if(ok)void this.showControlPanel(this.current);return ok;}
+ setVolume(percent){this.volume=percent;if(this.resource?.volume)this.resource.volume.setVolume(percent/100);void this.showControlPanel(this.current);}
+ toggleRepeat(){this.repeatMode=this.repeatMode==='one'?'off':'one';void this.showControlPanel(this.current);return this.repeatMode;}
+ shuffleQueue(){
+  if(this.queue.length<2)return false;
+  for(let i=this.queue.length-1;i>0;i--){const j=randomInt(i+1);[this.queue[i],this.queue[j]]=[this.queue[j],this.queue[i]];}
+  void this.showControlPanel(this.current);return true;
+ }
  setDJ(preset){this.dj=preset;if(this.current){this.queue.unshift({...this.current});this.skip();return true;}return false;}
- stop(){this.queue=[];this.autodj=false;this.alwaysOn=null;this.blockUntil=0;clearTimeout(this.retry);this.retry=null;this.clearTimer();if(this.current)this.skip();}
- onIdle(){if(this.closed)return;this.cleanProcess();this.resource=null;this.current=null;if(!this.starting)void this.startNext();}
+ stop(){this.queue=[];this.autodj=false;this.alwaysOn=null;this.repeatMode='off';this.blockUntil=0;clearTimeout(this.retry);this.retry=null;this.clearTimer();if(this.current)this.skip();else void this.showControlPanel(null);}
+ onIdle(){
+  if(this.closed)return;
+  const previous=this.current,skipped=this.skipRequested;
+  this.skipRequested=false;
+  if(previous&&this.repeatMode==='one'&&!skipped&&!previous.continuous){
+   this.queue.unshift({...previous,compatRetries:0});
+  }
+  this.cleanProcess();this.resource=null;this.current=null;
+  if(!this.starting)void this.startNext();
+ }
  fail(message){
   if(this.closed)return;
   this.lastError=errorText(message);console.error('[NEON AUDIO '+this.guildId+'] '+this.lastError);
@@ -112,6 +131,7 @@ class MusicSession{
    this.announce('🔄 YouTube: ponawiam '+attempt+'/2 z alternatywnym formatem audio: '+clean(item.title));
    this.blockUntil=Date.now()+attempt*2000;
   }
+  this.skipRequested=true;
   this.cleanProcess();
   this.retryCount=Math.min(6,this.retryCount+1);
   const delay=Math.min(60_000,3000*2**Math.min(4,this.retryCount));
@@ -128,9 +148,11 @@ class MusicSession{
    if(!item){
     if(this.alwaysOn?.mode==='autodj'||this.autodj){this.setRetry(30_000);return;}
     if(this.alwaysOn?.mode==='silent')return;
-    this.timer=setTimeout(()=>this.destroy(),IDLE_MINUTES*60_000);this.timer.unref?.();return;
+    void this.showControlPanel(null);
+   this.timer=setTimeout(()=>this.destroy(),IDLE_MINUTES*60_000);this.timer.unref?.();return;
    }
    this.current=item;
+   this.skipRequested=false;
    await entersState(this.connection,VoiceConnectionStatus.Ready,20_000);
    if(this.closed||this.current!==item)return;
    this.beginPlayback(item);
@@ -188,7 +210,7 @@ class MusicSession{
     :(viaNode||viaYouTube)?['-i','pipe:0']
     :['-reconnect','1','-reconnect_streamed','1','-reconnect_delay_max','4','-rw_timeout','15000000','-i',track.source];
   const filter=filterFor(this.dj);
-  const args=['-nostdin','-hide_banner','-loglevel','error',...input,'-vn','-sn','-dn',...(filter?['-af',filter]:[]),
+  const args=['-nostdin','-hide_banner','-loglevel','error','-threads','2','-filter_threads','1',...input,'-vn','-sn','-dn',...(filter?['-af',filter]:[]),
     '-ac','2','-ar','48000','-f','s16le','pipe:1'];
   const child=spawn(ffmpegPath(),args,{stdio:[(viaNode||viaYouTube)?'pipe':'ignore','pipe','pipe'],windowsHide:true});
   this.process=child;let bytes=0,stderr='';
