@@ -5,7 +5,7 @@ test('snapshots expose only safe playback metadata',()=>{
  const guild={id:'1471988860828516423'};
  const client={guilds:{cache:new Map([[guild.id,guild]])}};
  assert.deepEqual(safeSnapshot(client),[{
-  id:guild.id,connected:false,channelId:null,nowSource:null,queueTracks:[],history:[],savedPlaylists:[],favorites:[],stats:{total:0,youtube:0,radio:0,other:0},queueTotal:0,nowPlaying:'',queue:[],
+  id:guild.id,connected:false,channelId:null,nowSource:null,queueTracks:[],history:[],savedPlaylists:[],favorites:[],stats:{total:0,youtube:0,radio:0,other:0},queueTotal:0,radioCount:0,nowPlaying:'',queue:[],
   volume:85,repeat:'off',dj:'off',playerStatus:'idle'
  }]);
 });
