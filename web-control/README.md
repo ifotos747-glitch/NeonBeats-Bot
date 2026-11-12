@@ -118,3 +118,13 @@ Bez konfiguracji Worker+D1+sekretów przycisk Web Control na statycznej stronie 
 Sesja przeglądarkowa trwa do **90 dni bez aktywności** i odnawia się przy korzystaniu z panelu. Worker automatycznie odnawia krótkotrwały token dostępu Discord za pomocą tokenu odświeżania OAuth2. W D1 nie trzeba dodawać żadnych kolumn ani uruchamiać nowego SQL: pole `sessions.access_token` przechowuje teraz dane sesji OAuth w JSON (dostęp i odświeżanie) wyłącznie po stronie Cloudflare.
 
 **Po pierwszym wdrożeniu zaloguj się ponownie przez Discord jeden raz** — stare sesje nie zawierają tokenu odświeżania. Późniejsze odnawianie działa automatycznie. Sesja może nadal zakończyć się po 90 dniach nieaktywności, wylogowaniu, usunięciu cookies, cofnięciu dostępu OAuth albo unieważnieniu tokenu przez Discord. To nie jest logowanie bezterminowe, a bezpieczna odnawialna sesja.
+
+## 3.2 — ULTIMATE MUSIC DASHBOARD
+
+- Aktualna okładka: miniatura `i.ytimg.com` dla odtwarzanego filmu YouTube; dla radia i plików lokalnych zostaje ikona domyślna.
+- Wyszukiwanie utworów YouTube: yt-dlp `ytsearch5:` na ALTARE, maksymalnie 5 publicznych wyników. Wybór **Dodaj** umieszcza wybrany film w kolejce.
+- Historia ostatnich 60 zmian utworu na serwerze, przechowywana w prywatnym pliku `data/<guild_id>.json` na ALTARE; panel wyświetla maksymalnie 20 ostatnich. Historia zaczyna się z chwilą wdrożenia 3.2.
+- Zapisywanie aktualnej kolejki WWW w `store.savePlaylist`, wczytywanie i usuwanie przez panel; limit 25 playlist po 100 utworów. Wykorzystywany jest ten sam zapis co Discord `/playlist`.
+- Worker nadal używa istniejącej tabeli D1 `snapshots` i `commands`; **nie ma migracji SQL**.
+- Po aktualizacji plików Cloudflare należy osobno wgrać `src/store.js`, `src/web-control.js`, `package.json`, `index.js` na ALTARE i uruchomić bota ponownie. Nie zastępuj `.env`, `data`, `bin`, `music`.
+- Yt-dlp może nie zwracać wyników na niektórych hostingach, a niektóre utwory nie są dostępne do odtwarzania; nie gwarantuje pełnej zgodności z YouTube.
