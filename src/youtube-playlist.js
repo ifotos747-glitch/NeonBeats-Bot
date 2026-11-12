@@ -1,7 +1,7 @@
 'use strict';
 const {spawn}=require('node:child_process');
 const {validatePublicUrl}=require('./media');
-const {ytDlpPath,cleanYtdlpError}=require('./youtube');
+const {ytDlpPath,ytDlpEnvironment,isPyInstallerError,cleanYtdlpError}=require('./youtube');
 
 const MAX_PLAYLIST_ITEMS=100;
 const MAX_OUTPUT=4_000_000;
@@ -90,11 +90,12 @@ async function loadYoutubePlaylist(source,{start=1,limit=MAX_PLAYLIST_ITEMS,spaw
    if(error)return reject(Error('yt-dlp: '+String(error.code||error.message).slice(0,140)));
    if(oversize)return reject(Error('Playlista jest zbyt duża do przetworzenia.'));
    if(timedOut)return reject(Error('Odczyt playlisty przekroczył limit czasu ('+Math.round(timeoutMs/1000)+' s).'));
+   if(isPyInstallerError(stderr))return reject(Error('Błąd uruchomienia yt-dlp podczas odczytu playlisty: '+cleanYtdlpError(stderr)));
    const parsed=parsePlaylistEntries(stdout,{limit});
    if(!parsed.tracks.length)return reject(Error('Nie odczytano żadnego publicznie dostępnego filmu w tym zakresie. '+cleanYtdlpError(stderr)));
    resolve({...parsed,partial:code!==0||/(?:ERROR:|WARNING:)/.test(stderr),start,limit});
   };
-  try{child=spawnProcess(bin,args,{stdio:['ignore','pipe','pipe'],windowsHide:true});}
+  try{child=spawnProcess(bin,args,{stdio:['ignore','pipe','pipe'],windowsHide:true,env:ytDlpEnvironment()});}
   catch(e){finish(null,null,e);return;}
   child.stdout?.on('data',data=>{
    stdout+=data.toString();
