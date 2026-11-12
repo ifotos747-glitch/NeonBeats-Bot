@@ -2,10 +2,11 @@
 // ALTARE sends only outgoing HTTPS requests to Cloudflare. No inbound port is exposed.
 const {classifyInput}=require('./media');
 const {normalizeYouTubeUrl,youtubeVideoTitle}=require('./youtube');
+const {loadYoutubePlaylist,isYouTubePlaylistUrl,validateRange}=require('./youtube-playlist');
 const radio=require('./global-radio'),store=require('./store');
 const {sessions}=require('./player');
 
-const VALID_ACTIONS=new Set(['pause','resume','skip','stop','shuffle','repeat','volume','play','radio','dj','clear']);
+const VALID_ACTIONS=new Set(['pause','resume','skip','stop','shuffle','repeat','volume','play','playlist','radio','dj','clear']);
 function safeSnapshot(client){
  return [...client.guilds.cache.values()].map(guild=>{
   const s=sessions.get(guild.id);
@@ -40,6 +41,20 @@ async function perform(client,cmd){
    s.enqueue({kind:'youtube-link',source:url,title});
    return 'Dodano do kolejki: '+title;
   }
+  case 'playlist':{
+   if(!value||typeof value!=='object'||typeof value.url!=='string'||value.url.length>500||!isYouTubePlaylistUrl(value.url))throw Error('Podaj prawidłowy link playlisty YouTube.');
+   const {start,limit}=validateRange({start:value.start,limit:value.limit});
+   if(s.queue.length>=100)throw Error('Kolejka jest pełna (100 utworów).');
+   const result=await loadYoutubePlaylist(value.url,{start,limit});
+   if(s.closed)throw Error('Bot opuścił kanał głosowy.');
+   const space=100-s.queue.length;
+   if(space<1)throw Error('Kolejka jest pełna (100 utworów).');
+   const tracks=result.tracks.slice(0,space);
+   // Do not interrupt currently playing radio/AutoDJ when adding a playlist from WWW.
+   if(s.current?.continuous){s.queue.push(...tracks);void s.showControlPanel(s.current);}
+   else s.enqueueMany(tracks);
+   return '✅ Playlista YouTube: znaleziono '+result.tracks.length+' utworów, dodano '+tracks.length+' do kolejki (od pozycji '+start+'). Pominięto '+result.skipped+'.'+(result.partial?' ⚠️ Niektóre pozycje mogły być niedostępne.':'')+(tracks.length<result.tracks.length?' Limit kolejki 100 utworów.':'')+(s.current?.continuous?' Aktualne radio/AutoDJ gra dalej; aby przejść do kolejki, użyj Pomiń.':'');
+  }
   case 'radio':{
    if(typeof value!=='string'||value.length>100)throw Error('Niepoprawna nazwa stacji.');
    const station=radio.find(value);
@@ -58,6 +73,7 @@ function startWebControl(client,{fetchImpl=fetch,intervalMs=3000}={}){
   console.warn('⚠️ Web Control wyłączony: wymagane https://... oraz silny sekret (min. 32 znaki).');return null;
  }
  let busy=false,stopped=false;
+ let jobChain=Promise.resolve();
  const request=async(path,data)=>{
   const response=await fetchImpl(base+path,{method:'POST',
    headers:{authorization:'Bearer '+secret,'content-type':'application/json'},
@@ -70,10 +86,13 @@ function startWebControl(client,{fetchImpl=fetch,intervalMs=3000}={}){
   try{
    const report=await request('/api/bridge/sync',{guilds:safeSnapshot(client)});
    for(const command of report.commands||[]){
-    let status='done',result='';
-    try{result=await perform(client,command);}catch(e){status='failed';result=String(e.message||e).slice(0,250);}
-    try{await request('/api/bridge/result',{id:command.id,status,result});}
-    catch(e){console.warn('🌐 Web Control: nie zapisano wyniku '+String(e.message));}
+    // Playlist metadata may take two minutes. Keep heartbeat/snapshots alive while it loads.
+    jobChain=jobChain.catch(()=>{}).then(async()=>{
+     let status='done',result='';
+     try{result=await perform(client,command);}catch(e){status='failed';result=String(e.message||e).slice(0,250);}
+     try{await request('/api/bridge/result',{id:command.id,status,result});}
+     catch(e){console.warn('🌐 Web Control: nie zapisano wyniku '+String(e.message));}
+    });
    }
   }catch(e){console.warn('🌐 Web Control: '+String(e.message||e).slice(0,130));}
   finally{busy=false;}
