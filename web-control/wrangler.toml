@@ -1,4 +1,4 @@
-name = "neonbeats-web-control"
+name = "neonbeats"
 main = "worker.js"
 compatibility_date = "2026-11-12"
 
@@ -9,7 +9,7 @@ run_worker_first = ["/api/*", "/auth/*"]
 
 [vars]
 DISCORD_CLIENT_ID = "1471988860828516423"
-PUBLIC_ORIGIN = "https://REPLACE_WITH_YOUR_WORKERS_DOMAIN.workers.dev"
+PUBLIC_ORIGIN = "https://neonbeats.ifotos747.workers.dev"
 
 [[d1_databases]]
 binding = "DB"
