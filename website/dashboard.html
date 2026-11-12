@@ -192,7 +192,8 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
   if(!p.active&&['stadium','lofi','crystal'].includes($('dj').value))$('dj').value='off';
   $('volume').value=String(bot.volume);$('volumeLabel').textContent=bot.volume+'%';
   $('repeat').textContent=bot.repeat==='one'?'Jeden utwór':'Wyłączone';
-  $('djLabel').textContent=bot.dj;$('dj').value=bot.dj;$('djDescription').textContent=djDescriptions[bot.dj]||djDescriptions.off;
+  const displayedDJ=(!p.active&&['stadium','lofi','crystal'].includes(bot.dj))?'off':bot.dj;
+  $('djLabel').textContent=displayedDJ;$('dj').value=displayedDJ;$('djDescription').textContent=djDescriptions[displayedDJ]||djDescriptions.off;
   const playing=bot.connected&&bot.playerStatus==='playing'&&!!bot.nowPlaying;
   $('visualizer').classList.toggle('paused',!playing);
   $('vizStatus').textContent=playing?'Odtwarzanie aktywne':bot.connected?'Pauza / buforowanie':'Bot offline';
