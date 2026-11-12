@@ -104,7 +104,7 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
  async function api(path,options={}){
   const r=await fetch(path,{credentials:'same-origin',cache:'no-store',...options});
   let data;try{data=await r.json();}catch{throw Error('Nie można odczytać odpowiedzi serwera.');}
-  if(!r.ok)throw Error(data.error||'Błąd HTTP '+r.status);
+  if(!r.ok){const error=Error(data.error||'Błąd HTTP '+r.status);error.status=r.status;throw error;}
   return data;
  }
  async function send(action,value){
@@ -157,8 +157,16 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
    guilds.forEach(g=>{const option=document.createElement('option');option.value=g.id;option.textContent=g.name;$('guild').append(option);});
    selected=guilds[0].id;await refresh();
   }catch(e){
-   $('connection').textContent='● Wymagane logowanie';
-   $('loginPanel').classList.remove('hidden');$('controlPanel').classList.add('hidden');
+   if(e.status===401){
+    signedIn=false;$('connection').textContent='● Wymagane logowanie';
+    $('loginPanel').classList.remove('hidden');$('controlPanel').classList.add('hidden');
+   }else{
+    // Temporary Discord API errors, Cloudflare errors and network interruptions are NOT logouts.
+    $('connection').textContent='● Chwilowa niedostępność';
+    if(!signedIn){$('loginPanel').classList.add('hidden');$('controlPanel').classList.add('hidden');}
+    message('Nie udało się chwilowo połączyć: '+e.message+'. Spróbuję ponownie automatycznie.',true);
+    setTimeout(()=>void init(),15000);
+   }
   }
  }
  $('guild').addEventListener('change',event=>{selected=event.target.value;void refresh();});
