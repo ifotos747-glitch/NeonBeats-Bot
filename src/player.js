@@ -144,6 +144,12 @@ class MusicSession{
    this.queue.unshift({...item,compatRetries:attempt});
    this.announce('🔄 YouTube: ponawiam '+attempt+'/2 z alternatywnym formatem audio: '+clean(item.title));
    this.blockUntil=Date.now()+attempt*2000;
+  }else if(item&&['radio','stream'].includes(item.kind)&&!item.continuous&&(item.reconnectRetries||0)<3){
+   // Manual radio stations also deserve bounded recovery on temporary outages.
+   const attempt=(item.reconnectRetries||0)+1;
+   this.queue.unshift({...item,reconnectRetries:attempt});
+   this.blockUntil=Date.now()+attempt*2500;
+   this.announce('🔄 Radio: próba ponownego połączenia '+attempt+'/3: '+clean(item.title));
   }
   this.skipRequested=true;
   this.cleanProcess();
