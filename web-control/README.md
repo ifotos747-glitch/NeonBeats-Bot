@@ -12,6 +12,8 @@ Wersja 3.0 nie usuwa funkcji 2.5: Youtube, remixy, radio globalne, AutoDJ, 24/7,
 - **Discord**: zakresy OAuth \`identify guilds\`, sprawdzanie praw Manage Guild / Administrator, wybór serwera, na którym bot jest połączony.
 - **Bezpieczeństwo**: nigdy nie wrzucaj tokenów ani sekretów OAuth do GitHub; sekret mostu musi być losowy i identyczny w Cloudflare i ALTARE.
 
+> **Uwaga:** `wrangler.jsonc` jest konfiguracją narzędzia wdrożeniowego, a nie stroną do przesłania jako plik. Wdrożenie wykonaj poleceniem `npx wrangler deploy --config web-control/wrangler.jsonc` z katalogu głównego projektu.
+
 ## 1. D1 w Cloudflare
 
 Na komputerze Windows z Node.js otwórz PowerShell, pobierz repozytorium i przejdź do katalogu projektu.
@@ -28,7 +30,7 @@ Utwórz bazę:
 npx wrangler d1 create neonbeats-control
 \`\`\`
 
-Cloudflare zwróci \`database_id\`. W pliku \`web-control/wrangler.toml\` zastąp \`REPLACE_WITH_YOUR_D1_DATABASE_ID\` zwróconym ID (to nie jest sekret).
+Cloudflare zwróci \`database_id\`. W pliku \`web-control/wrangler.jsonc\` zastąp \`REPLACE_WITH_YOUR_D1_DATABASE_ID\` zwróconym ID (to nie jest sekret).
 
 Wykonaj SQL:
 
@@ -40,14 +42,14 @@ npx wrangler d1 execute neonbeats-control --remote --file=web-control/schema.sql
 
 Strona 3.0 musi działać jako **Cloudflare Worker ze Static Assets**, ponieważ sam upload HTML do Cloudflare Pages NIE uruchomi API.
 
-Ustal docelowy adres Workera, np. \`https://neonbeats-web-control.TWOJ-SUBDOMAIN.workers.dev\` (sprawdź rzeczywisty adres w Cloudflare, nie zgaduj). W \`web-control/wrangler.toml\` ustaw:
+Ustal docelowy adres Workera, np. \`https://neonbeats-web-control.TWOJ-SUBDOMAIN.workers.dev\` (sprawdź rzeczywisty adres w Cloudflare, nie zgaduj). W \`web-control/wrangler.jsonc\` ustaw:
 
 \`\`\`toml
-PUBLIC_ORIGIN = "https://TWOJ-RZECZYWISTY-ADRES"
+PUBLIC_ORIGIN = "https://neonbeats.ifotos747.workers.dev"
 \`\`\`
 
 W [Discord Developer Portal](https://discord.com/developers/applications) otwórz aplikację NeonBeats, **OAuth2 → Redirects** i dodaj:
-\`https://TWOJ-RZECZYWISTY-ADRES/auth/callback\`
+\`https://neonbeats.ifotos747.workers.dev/auth/callback\`
 
 Client ID NeonBeats jest już ustawione w konfiguracji: \`1471988860828516423\`. Client Secret odnajdziesz w OAuth2, nie publikuj go.
 
@@ -56,8 +58,8 @@ Client ID NeonBeats jest już ustawione w konfiguracji: \`1471988860828516423\`.
 W PowerShell wywołaj osobno:
 
 \`\`\`powershell
-npx wrangler secret put DISCORD_CLIENT_SECRET --config web-control/wrangler.toml
-npx wrangler secret put BRIDGE_SECRET --config web-control/wrangler.toml
+npx wrangler secret put DISCORD_CLIENT_SECRET --config web-control/wrangler.jsonc
+npx wrangler secret put BRIDGE_SECRET --config web-control/wrangler.jsonc
 \`\`\`
 
 Pierwszy to sekret Discord OAuth2. Drugi to nowy, losowo wygenerowany klucz długości **minimum 32 znaków** (zalecane 64 znaki szesnastkowe). Przykład generowania w Node.js:
@@ -71,7 +73,7 @@ Zapisz ten drugi klucz bezpiecznie (nie w repo i nie wysyłaj na czat). Powtórz
 ## 4. Opublikuj stronę i API
 
 \`\`\`powershell
-npx wrangler deploy --config web-control/wrangler.toml
+npx wrangler deploy --config web-control/wrangler.jsonc
 \`\`\`
 
 Gdy wdrożenie pokaże URL Workera, sprawdź, czy jest **dokładnie równy** \`PUBLIC_ORIGIN\`; w przeciwnym razie popraw zmienną i redirect w Discord i wdroż ponownie.
@@ -85,7 +87,7 @@ Wgraj do bota nowe \`src/web-control.js\`, \`src/bot.js\` i \`package.json\`. Za
 W istniejącym \`.env\` ALTARE dodaj:
 
 \`\`\`dotenv
-NEONBEATS_CONTROL_URL=https://TWOJ-RZECZYWISTY-ADRES
+NEONBEATS_CONTROL_URL=https://neonbeats.ifotos747.workers.dev
 NEONBEATS_CONTROL_SECRET=TU_TEN_SAM_LOSOWY_BRIDGE_SECRET
 \`\`\`
 
