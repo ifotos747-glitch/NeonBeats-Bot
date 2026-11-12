@@ -5,7 +5,7 @@ const {pipeHttpAudio}=require('./network');
 const {spawnYouTube,cleanYtdlpError}=require('./youtube');
 const {joinVoiceChannel,createAudioPlayer,createAudioResource,AudioPlayerStatus,VoiceConnectionStatus,NoSubscriberBehavior,StreamType,entersState}=require('@discordjs/voice');
 const {MUSIC,ffmpegPath,IDLE_MINUTES}=require('./config');
-const {musicFiles}=require('./media'),{filterFor}=require('./effects'),store=require('./store');
+const {musicFiles}=require('./media'),{filterFor}=require('./effects'),store=require('./store'),radio=require('./global-radio');
 const sessions=new Map(),MAX_QUEUE=100;
 function clean(s){return String(s||'Utwór').replace(/[\r\n\t*_<>@]/g,' ').slice(0,100);}
 function errorText(s){return String(s||'').replace(/https?:\/\/[^\s]+/gi,'[URL]').replace(/[\r\n]+/g,' ').slice(-200);}
@@ -39,7 +39,7 @@ class MusicSession{
  chooseNext(){
   if(this.queue.length)return this.queue.shift();
   if(this.alwaysOn?.mode==='radio'){
-    const st=store.read(this.guildId).radios.find(r=>r.id===this.alwaysOn.stationId);
+    const st=radio.find(this.alwaysOn.stationId);
     if(!st){this.announce('⚠️ Radio 24/7 nie istnieje — wyłączam tryb.');this.alwaysOn=null;store.set247(this.guildId,null);return null;}
     return{kind:'radio',source:st.url,title:st.name,stationId:st.id,continuous:true};
   }
