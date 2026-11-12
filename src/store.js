@@ -13,7 +13,7 @@ function read(id){
  if(Array.isArray(data.radioFavorites))d.radioFavorites=data.radioFavorites.filter(x=>typeof x==='string').slice(0,50);
  if(data.playlists&&typeof data.playlists==='object'&&!Array.isArray(data.playlists))d.playlists=data.playlists;
  if(Array.isArray(data.history))d.history=data.history.filter(x=>x&&typeof x.title==='string').slice(0,60);
- if(Array.isArray(data.favorites))d.favorites=data.favorites.filter(x=>x&&x.kind==='youtube-link'&&typeof x.source==='string'&&typeof x.title==='string').slice(0,100);
+ if(Array.isArray(data.favorites))d.favorites=data.favorites.filter(x=>x&&x.kind==='youtube-link'&&typeof x.source==='string'&&typeof x.title==='string').slice(0,250);
  if(data.stats&&typeof data.stats==='object')for(const k of ['total','youtube','radio','other'])d.stats[k]=Math.max(0,Math.floor(Number(data.stats[k])||0));
  if(Object.hasOwn(PRESETS,data.dj))d.dj=data.dj;
  if(data.premium&&typeof data.premium==='object'&&Number.isFinite(data.premium.expiresAt))d.premium={expiresAt:data.premium.expiresAt,updatedBy:String(data.premium.updatedBy||''),updatedAt:Number(data.premium.updatedAt)||0};
