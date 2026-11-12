@@ -10,7 +10,7 @@ const RELEASE='2026.10.26'; // Pinned verified first install; /youtube aktualizu
 const DOWNLOAD='https://github.com/yt-dlp/yt-dlp/releases/download/'+RELEASE+'/yt-dlp_linux';
 const EXPECTED_SHA256='767ba9dce7052aa196f8b12652f433d76de128ba168966fa84b6394d5e6c6795';
 const LOCAL=path.join(ROOT,'bin','yt-dlp_linux');
-const YT_HOSTS=new Set(['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtu.be','www.youtu.be']);
+const YT_HOSTS=new Set(['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtu.be','www.youtu.be','youtube-nocookie.com','www.youtube-nocookie.com']);
 const VIDEO_ID=/^[A-Za-z0-9_-]{11}$/;
 let installPromise=null;
 
@@ -20,7 +20,7 @@ function normalizeYouTubeUrl(raw){
  let id;
  if(['youtu.be','www.youtu.be'].includes(u.hostname.toLowerCase()))id=u.pathname.slice(1);
  else if(u.pathname==='/watch')id=u.searchParams.get('v');
- else if(/^\/(?:shorts|live)\/[^/]+\/?$/.test(u.pathname))id=u.pathname.split('/')[2];
+ else if(/^\/(?:shorts|live|embed)\/[^/]+\/?$/.test(u.pathname))id=u.pathname.split('/')[2];
  if(!VIDEO_ID.test(id||''))throw Error('Podaj link pojedynczego filmu YouTube, nie playlistę lub kanał.');
  return 'https://www.youtube.com/watch?v='+id;
 }
