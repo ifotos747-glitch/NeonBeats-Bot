@@ -95,7 +95,7 @@ Uruchom ponownie bota. W logach NeonBeats nie powinno być błędu \`Web Control
 
 1. Na Discordzie zaproś już działającego bota na serwer, którym zarządzasz.
 2. Dołącz do kanału głosowego i odtwórz utwór poleceniem \`/play\`, aby bot wszedł na głos.
-3. W przeglądarce otwórz \`https://ADRES-WORKERA/dashboard.html\` i kliknij **Zaloguj przez Discord**.
+3. W przeglądarce otwórz \`https://ADRES-WORKERA/dashboard\` i kliknij **Zaloguj przez Discord**.
 4. Wybierz serwer, sprawdź tytuł, kolejkę i głośność. Kliknij **Pauza**, **Wznów**, **Pomiń**, **Dodaj utwór**.
 5. Sprawdź, czy stan na Discordzie odpowiada stronie.
 

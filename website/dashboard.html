@@ -135,7 +135,7 @@ footer{color:#8f93ae;font-size:12px;text-align:center;padding:35px 20px}
  $('saveDJ').addEventListener('click',()=>void send('dj',$('dj').value));
  $('addVideo').addEventListener('click',()=>{const url=$('youtubeUrl').value.trim();if(!url)return message('Wpisz link YouTube.',true);void send('play',url);});
  $('playRadio').addEventListener('click',()=>{const name=$('radioName').value.trim();if(!name)return message('Podaj nazwę stacji.',true);void send('radio',name);});
- $('logout').addEventListener('click',async()=>{await api('/auth/logout',{method:'POST',headers:{'content-type':'application/json'}}).catch(()=>{});location.href='/dashboard.html';});
+ $('logout').addEventListener('click',async()=>{await api('/auth/logout',{method:'POST',headers:{'content-type':'application/json'}}).catch(()=>{});location.href='/dashboard';});
  void init();
  setInterval(()=>{if(signedIn&&selected)void refresh();},7000);
 })();
