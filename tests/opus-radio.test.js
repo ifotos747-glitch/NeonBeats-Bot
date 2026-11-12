@@ -14,7 +14,7 @@ test('radio codec A/B mode is opt-in and defaults to the original PCM engine',()
  assert.equal(radioCodec({NEONBEATS_RADIO_CODEC:'other'}),'pcm');
 });
 
-test('native FFmpeg Opus is buffered as Ogg and demuxed into Discord-ready packets', {timeout:18000},async()=>{
+test('native FFmpeg Opus uses real buffered packets and direct Discord resource', {timeout:18000},async()=>{
  const args=[
   '-nostdin','-hide_banner','-loglevel','error',
   '-f','lavfi','-i','sine=frequency=440:sample_rate=48000:duration=3',
@@ -28,7 +28,7 @@ test('native FFmpeg Opus is buffered as Ogg and demuxed into Discord-ready packe
  try{
   let started=0,packets=0,bytes=0;
   const buffering=bufferOpusRadio(child.stdout,()=>started++,{milliseconds:200,maxMs:1000});
-  const resource=createAudioResource(buffering.stream,{inputType:StreamType.OggOpus,inlineVolume:false});
+  const resource=createAudioResource(buffering.stream,{inputType:StreamType.Opus,inlineVolume:false});
   assert.equal(resource.volume,undefined);
   for await(const packet of resource.playStream){
    assert.ok(Buffer.isBuffer(packet));
@@ -43,7 +43,8 @@ test('native FFmpeg Opus is buffered as Ogg and demuxed into Discord-ready packe
   assert.equal(started,1);
   assert.ok(packets>=120,'expected 3s of ~20ms native Opus packets, got '+packets);
   assert.ok(bytes>1000,'expected encoded audio');
-  assert.ok(buffering.stats.receivedBytes>1000);
+  assert.equal(buffering.stats.receivedPackets,packets);
+  assert.equal(buffering.stats.playedPackets,packets);
   assert.ok(buffering.stats.peakBufferedMs>0);
   buffering.stop();
  } finally{clearTimeout(timer);if(child.exitCode===null)child.kill('SIGKILL');}
