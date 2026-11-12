@@ -3,7 +3,7 @@ const {Client,GatewayIntentBits,Events,EmbedBuilder,ActionRowBuilder,ButtonBuild
 const {execFile}=require('node:child_process');
 const {ffmpegPath,BOT_NAME,VERSION}=require('./config');
 const {musicFiles,localFile,classifyInput}=require('./media');
-const store=require('./store'),radio=require('./global-radio'),{sessions,ensureSession}=require('./player');
+const store=require('./store'),radio=require('./global-radio'),{sessions,ensureSession,audioBufferMs,MAX_MISSED_FRAMES}=require('./player');
 const {diagnoseStream,diagnoseLocalFFmpeg,diagnoseHttp,formatDiagnostic}=require('./diagnostics');
 const {normalizeYouTubeUrl,youtubeVideoTitle,ytDlpPath,ytDlpTempStatus,installYtDlp,updateYtDlp,ytDlpVersion,diagnoseYouTube}=require('./youtube');
 const {MAX_PLAYLIST_ITEMS,isYouTubePlaylistUrl,loadYoutubePlaylist}=require('./youtube-playlist');
@@ -141,6 +141,8 @@ async function slash(i){
    (s?.connection.state.status||'brak')+'\nPlayer: '+(s?.player.state.status||'brak')+
    '\nPliki: '+musicFiles().length+'\nStacje globalne: '+radio.list().length+
    '\n24/7: '+(d.alwaysOn?.mode||'wyłączony')+'\nDJ: '+d.dj+
+   '\nBufor radia: '+audioBufferMs({kind:'radio'})+' ms | bufor YouTube: '+audioBufferMs({kind:'youtube-link'})+' ms'+
+   '\nTolerancja krótkich przerw: '+MAX_MISSED_FRAMES*20+' ms'+
    (s?.lastError?'\nOstatni błąd: '+clean(s.lastError):''))]});
  }
  if(n==='files')return i.reply({content:'🎵 Pliki: '+(musicFiles().map(clean).join(', ')||'Brak'),...hidden});
