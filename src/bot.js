@@ -11,7 +11,7 @@ const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.Gui
 const hidden={flags:MessageFlags.Ephemeral};
 function clean(x){return String(x||'').replace(/[\r\n*@<>]/g,' ').slice(0,140);}
 function embed(title,body){return new EmbedBuilder().setColor(0x8e41f5).setTitle(title).setDescription(body).setFooter({text:'NeonBeats • '+VERSION});}
-function panel(){
+function panel(track=null){
  const row1=new ActionRowBuilder().addComponents(
   new ButtonBuilder().setCustomId('neon:pause').setLabel('Pauza').setEmoji('⏸️').setStyle(ButtonStyle.Secondary),
   new ButtonBuilder().setCustomId('neon:resume').setLabel('Wznów').setEmoji('▶️').setStyle(ButtonStyle.Success),
@@ -24,7 +24,7 @@ function panel(){
   new ButtonBuilder().setCustomId('neon:up').setLabel('+10%').setStyle(ButtonStyle.Secondary),
   new ButtonBuilder().setCustomId('neon:now').setLabel('Teraz gra').setStyle(ButtonStyle.Secondary)
  );
- return {embeds:[embed('🎧 NEONBEATS • MUSIC CONTROL','Sterowanie muzyką, kolejką i głośnością.\nRadio 24/7 • AutoDJ • DJ FX')],components:[row1,row2]};
+ return {embeds:[embed('🎧 NEONBEATS • MUSIC CONTROL',(track?'🎶 Teraz gra: '+clean(track.title)+'\n':'')+'Sterowanie muzyką, kolejką i głośnością.\nRadio 24/7 • AutoDJ • DJ FX')],components:[row1,row2]};
 }
 function requireAdmin(i){if(!i.memberPermissions?.has(PermissionFlagsBits.ManageGuild)&&i.guild?.ownerId!==i.user.id)throw Error('Wymagane uprawnienie Zarządzanie serwerem.');}
 function requireOwner(i){
@@ -40,7 +40,7 @@ function voice(i){const m=i.guild?.members.cache.get(i.user.id)||i.member,v=m?.v
  if(!v?.isVoiceBased?.())throw Error('Najpierw dołącz do kanału głosowego.');return v;}
 function getSession(i){const s=sessions.get(i.guildId);if(!s)throw Error('Bot nie jest połączony.');
  if(voice(i).id!==s.channelId)throw Error('Dołącz do kanału, na którym jest bot.');return s;}
-function join(i){return ensureSession(i.guild,voice(i),i.channel);}
+function join(i){const session=ensureSession(i.guild,voice(i),i.channel);session.panelFactory=panel;return session;}
 async function enqueueYoutubePlaylist(i,source,{start=1,limit=MAX_PLAYLIST_ITEMS}={}){
  // Validate channel before contacting YouTube; no voice connection created yet.
  voice(i);
@@ -293,7 +293,7 @@ async function restore247(){
    const v=await guild.channels.fetch(d.channelId).catch(()=>null);
    const text=await guild.channels.fetch(d.textChannelId).catch(()=>null);
    if(!v?.isVoiceBased?.()||!v.joinable)continue;
-   const s=ensureSession(guild,v,text||null);s.alwaysOn=d;void s.startNext();
+   const s=ensureSession(guild,v,text||null);s.panelFactory=panel;s.alwaysOn=d;void s.startNext();
    console.log('📡 Przywrócono 24/7: '+d.mode);
   }catch(e){console.warn('NeonBeats 24/7:',e.message);}
  }
