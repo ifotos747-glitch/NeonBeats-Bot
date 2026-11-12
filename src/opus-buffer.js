@@ -1,60 +1,88 @@
 'use strict';
-const {PassThrough}=require('node:stream');
+const {Readable}=require('node:stream');
+const {createAudioResource,StreamType}=require('@discordjs/voice');
 
-// FFmpeg produces Ogg/Opus at 128 kbit/s (about 16 KB/s).
-// Buffer the container byte stream; @discordjs/voice demuxes Opus natively.
-// No direct prism-media dependency and no JavaScript Opus re-encoding.
-const OPUS_ESTIMATED_BYTES_PER_SECOND=16000;
-function bufferOpusRadio(source,onReady,{milliseconds=2000,maxMs=6000}={}){
- const startMs=Math.max(0,Math.min(3000,Number(milliseconds)||0));
- const capMs=Math.max(startMs+500,Math.min(10000,Number(maxMs)||6000));
- const threshold=Math.round(OPUS_ESTIMATED_BYTES_PER_SECOND*startMs/1000);
- const capBytes=Math.round(OPUS_ESTIMATED_BYTES_PER_SECOND*capMs/1000);
- const out=new PassThrough({highWaterMark:capBytes});
- const stats={receivedBytes:0,peakBufferedMs:0};
+// FFmpeg emits Ogg/Opus frames of exactly 20ms. The built-in Voice demuxer
+// extracts real Opus packets; buffering Ogg byte counts was only an estimate
+// and could reach zero even while the downstream decoder held plenty of audio.
+const FRAME_MS=20;
+function bufferOpusRadio(source,onReady,{milliseconds=2000,maxMs=6000,recoveryMs=300}={}){
+ const startupFrames=Math.max(1,Math.min(150,Math.ceil((Number(milliseconds)||0)/FRAME_MS)));
+ const maxFrames=Math.max(startupFrames+25,Math.min(500,Math.ceil((Number(maxMs)||6000)/FRAME_MS)));
+ const refillFrames=Math.max(2,Math.min(50,Math.ceil((Number(recoveryMs)||300)/FRAME_MS)));
+ const demuxResource=createAudioResource(source,{inputType:StreamType.OggOpus,inlineVolume:false});
+ const packetSource=demuxResource.playStream;
+ const packets=[];
+ let started=false,ended=false,closed=false,waiting=false,paused=false,refilling=false,missingEpisode=false;
+ const stats={receivedPackets:0,playedPackets:0,peakBufferedMs:0,underruns:0};
+ const stream=new Readable({objectMode:true,highWaterMark:4,read(){pump();}});
  Object.defineProperty(stats,'bufferedMs',{enumerable:true,get(){
-  return Math.round((stashBytes+out.readableLength)*1000/OPUS_ESTIMATED_BYTES_PER_SECOND);
+  return (packets.length+stream.readableLength)*FRAME_MS;
  }});
- let started=false,paused=false,closed=false,stashBytes=0;
- let stash=[];
+ function reportPeak(){
+  stats.peakBufferedMs=Math.max(stats.peakBufferedMs,stats.bufferedMs);
+ }
+ function resume(){
+  if(paused&&!ended&&packets.length<maxFrames/2){
+   paused=false;packetSource.resume();
+  }
+ }
+ function pump(){
+  if(closed)return;
+  if(!started){waiting=true;return;}
+  if(refilling){
+   if(packets.length<refillFrames&&!ended){waiting=true;return;}
+   refilling=false;missingEpisode=false;
+  }
+  if(packets.length){
+   waiting=false;
+   const packet=packets.shift();
+   stats.playedPackets++;
+   stream.push(packet);
+   resume();
+  }else if(ended){
+   stream.push(null);
+   cleanup();
+  }else{
+   waiting=true;refilling=true;
+   if(!missingEpisode){missingEpisode=true;stats.underruns++;}
+  }
+ }
  function start(){
   if(started||closed)return;
   started=true;
-  // The voice resource can already be wired to the Ogg demuxer. Keep compressed
-  // data aside until startup is satisfied, instead of allowing the demuxer to
-  // consume the entire prebuffer before the player starts.
   onReady();
-  const pending=stash;stash=[];stashBytes=0;
-  for(const chunk of pending)writeOutput(chunk);
+  if(waiting)pump();
  }
- function writeOutput(chunk){
-  if(!out.write(chunk)&&!paused){paused=true;source.pause();}
+ function onPacket(packet){
+  if(closed||!Buffer.isBuffer(packet)||packet.length===0)return;
+  packets.push(packet);
+  stats.receivedPackets++;
+  reportPeak();
+  if(!started&&packets.length>=startupFrames)start();
+  if(started&&waiting)pump();
+  if(packets.length>=maxFrames&&!paused){paused=true;packetSource.pause();}
  }
- function onData(chunk){
-  if(closed||!chunk?.length)return;
-  stats.receivedBytes+=chunk.length;
-  if(!started){
-   stash.push(chunk);stashBytes+=chunk.length;
-   stats.peakBufferedMs=Math.max(stats.peakBufferedMs,stats.bufferedMs);
-   if(stashBytes>=threshold)start();
-  }else{
-   writeOutput(chunk);
-   stats.peakBufferedMs=Math.max(stats.peakBufferedMs,stats.bufferedMs);
-  }
+ function onEnd(){
+  if(closed)return;
+  ended=true;
+  if(!started)start();
+  if(waiting)pump();
  }
- function onDrain(){if(paused&&!closed){paused=false;source.resume();}}
- function onEnd(){if(closed)return;out.end();start();}
- function onError(err){if(closed)return;start();out.destroy(err);}
+ function onError(err){if(!closed)stream.destroy(err);}
  function cleanup(){
   if(closed)return;
-  closed=true;source.off('data',onData);source.off('end',onEnd);source.off('error',onError);
-  out.off('drain',onDrain);
-  stash=[];stashBytes=0;
-  if(paused)source.resume();
+  closed=true;
+  packetSource.off('data',onPacket);
+  packetSource.off('end',onEnd);
+  packetSource.off('error',onError);
+  packetSource.destroy();
+  packets.length=0;
  }
- source.on('data',onData);source.once('end',onEnd);source.once('error',onError);
- out.on('drain',onDrain);out.once('close',cleanup);
- if(startMs===0)process.nextTick(start);
- return{stream:out,stats,stop:()=>{cleanup();out.destroy();}};
+ packetSource.on('data',onPacket);
+ packetSource.once('end',onEnd);
+ packetSource.once('error',onError);
+ stream.once('close',cleanup);
+ return{stream,stats,stop:()=>{cleanup();stream.destroy();}};
 }
-module.exports={bufferOpusRadio,OPUS_ESTIMATED_BYTES_PER_SECOND};
+module.exports={bufferOpusRadio,FRAME_MS};
