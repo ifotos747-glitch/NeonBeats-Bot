@@ -7,6 +7,7 @@ const {RadioHealth}=require('./radio-health');
 const {VoiceHealth}=require('./voice-health');
 const {bufferPcm,bufferLivePcm}=require('./audio-buffer');
 const {bufferOpusRadio}=require('./opus-buffer');
+const {opusProfile,opusOutputArgs}=require('./opus-profile');
 const {spawnYouTube,cleanYtdlpError,selectAudioProfile,isPyInstallerError}=require('./youtube');
 const {joinVoiceChannel,createAudioPlayer,createAudioResource,AudioPlayerStatus,VoiceConnectionStatus,NoSubscriberBehavior,StreamType,entersState}=require('@discordjs/voice');
 const {MUSIC,ffmpegPath,IDLE_MINUTES}=require('./config');
@@ -292,6 +293,7 @@ class MusicSession{
   this.voiceHealth?.reset(liveRadio);
   const opusRadio=liveRadio&&radioCodec()==='opus'&&!this.nativeOpusFailed;
   this.radioOpus=opusRadio;
+  this.radioOpusProfile=opusRadio?opusProfile():null;
   const viaNode=track.kind!=='file'&&!viaYouTube&&!/\.(?:m3u8|m3u|pls)(?:$|[?#])/i.test(track.source);
   const input=track.kind==='file'?['-i',path.join(MUSIC,track.source)]
     :(viaNode||viaYouTube)?['-i','pipe:0']
@@ -300,9 +302,7 @@ class MusicSession{
   const allowedDJ=premium.PREMIUM_DJ.has(this.dj)&&!premium.status(this.guildId).active?'off':this.dj;
   const filter=filterFor(allowedDJ);
   const radioFilter=opusRadio?[filter,'volume='+Math.max(0,Math.min(1.5,this.volume/100)).toFixed(3)].filter(Boolean).join(','):filter;
-  const outputArgs=opusRadio?
-   ['-ac','2','-ar','48000','-c:a','libopus','-application','audio','-frame_duration','20',
-    '-b:a','128k','-vbr','on','-f','opus','pipe:1']:
+  const outputArgs=opusRadio?opusOutputArgs(this.radioOpusProfile):
    ['-ac','2','-ar','48000','-f','s16le','pipe:1'];
   const args=['-nostdin','-hide_banner','-loglevel',liveRadio?'warning':'error','-threads','2','-filter_threads','1',
    ...input,'-vn','-sn','-dn',...(radioFilter?['-af',radioFilter]:[]),...outputArgs];
