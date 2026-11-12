@@ -1,21 +1,14 @@
-# Oficjalna strona NeonBeats 2.5
+# NeonBeats — oficjalna strona + Web Control 3.0
 
-Strona znajduje się w katalogu `website/`.
+Strona `website/index.html` i panel `website/dashboard.html` są przygotowane do wspólnego hostingu na **Cloudflare Worker Static Assets**.
 
-## Cloudflare Pages
-1. Pobierz folder `website/` albo ZIP strony.
-2. W Cloudflare wybierz **Workers & Pages → Create / Utwórz → Pages** i **Upload assets / Prześlij zasoby**.
-3. Prześlij plik `index.html` jako plik główny albo ZIP, jeśli interfejs Cloudflare akceptuje ZIP.
-4. Cloudflare przydzieli adres `*.pages.dev`. Możesz podłączyć własną domenę.
+Sam upload HTML na Cloudflare Pages pozwoli zobaczyć szatę graficzną, ale **nie uruchomi sterowania botem**. Do działającego panelu potrzebne są konfiguracja Discord OAuth2, D1 i most ALTARE–Cloudflare.
 
-Strona nie wymaga Node.js, bazy danych ani serwera API. Jest osobna od procesu bota na ALTARE.
+## Konfiguracja i wdrożenie
 
-## Zaproszenie do bota
-Wszystkie przyciski zaproszenia prowadzą pod adres podany przez właściciela:
+Pełna instrukcja: [web-control/README.md](../web-control/README.md).
+
+Link zaproszenia bota:
 https://discord.com/oauth2/authorize?client_id=1471988860828516423
 
-## Czego strona nie robi
-Nie wyświetla niezweryfikowanego statusu online ani prawdziwych statystyk bota. Widok MUSIC CONTROL jest demonstracją; przyciski odtwarzania działają wyłącznie w Discordzie.
-
-## Bezpieczeństwo
-Nie publikuj `.env`, tokenów Discorda, folderu `data/` ani plików ALTARE. Do Cloudflare wgrywaj wyłącznie pliki z `website/`.
+Nie przesyłaj do Cloudflare jako publicznych zasobów plików .env, tokenów, danych ALTARE ani bazy.
