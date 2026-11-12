@@ -15,7 +15,7 @@ function bufferPcm(source,onReady,{milliseconds=1800}={}){
  });
  output.on('drain',()=>source.resume());
  source.once('end',()=>{output.end();start();});
- source.once('error',err=>{output.destroy(err);});
+ source.once('error',()=>{output.end();start();});
  return output;
 }
 module.exports={bufferPcm,BYTES_PER_SECOND};
