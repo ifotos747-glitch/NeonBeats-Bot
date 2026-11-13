@@ -202,3 +202,21 @@ NEONBEATS_RADIO_PREBUFFER_MS=2000
 ```
 
 Zrestartuj bota, sprawdź `/status` (profil ROBUST), porównaj dłuższy odsłuch ESKA i Radio Club Dj z poprzednim profilem, **bez zmiany regionu kanału**. Żeby cofnąć test bez wracania do starej wersji, ustaw `NEONBEATS_RADIO_OPUS_PROFILE=standard` i zrestartuj bota. Jeśli profil nie pomaga, dalsze korekty kodeka bez twardych dowodów są nieuzasadnione. Następny istotny test to przeniesienie **tej samej wersji bota** na inny hosting / region sieciowy (przy zachowaniu tokena i uruchomieniu tylko jednej kopii), aby izolować trasę ALTARE → Discord Voice. Nie gwarantujemy usunięcia zakłóceń bez tego testu.
+
+## NeonBeats 3.7.10 — ROBUST CBR TEST
+
+Słuchacze na ALTARE zgłosili **dużo mniej zakłóceń** po przejściu na 3.7.9 `robust` (96 kb/s constrained VBR + 20 ms pakiety + parametry encoder FEC). Jednak sporadyczne zakłócenia nadal są słyszalne. Ponieważ `/testaudio` jest płynny, bufory radia mają około 5 s zapasu i lokalne odczyty/wysyłki nie wykazywały ciągłych problemów, nie zwiększamy już bufora ani nie zmieniamy regionów kanału.
+
+W tej wersji dodano **dobrowolny** trzeci profil radia internetowego `NEONBEATS_RADIO_OPUS_PROFILE=robust-cbr`, kodujący Opus w **96 kb/s ze stałym bitrate** (libopus `-vbr off`) zamiast 96 kb/s constrained VBR. Pozostałe parametry zostały zachowane (`-frame_duration 20`, `-fec 1`, `-packet_loss 10`). CBR może zmniejszyć wahania wielkości pakietów, ale **nie gwarantuje usunięcia zakłóceń i nie mierzy rzeczywistej utraty UDP**. Wersja pozostawia profile `standard` 128 kb/s VBR i `robust` 96 kb/s constrained VBR bez zmian; nie ingeruje w YouTube, PCM, pliki, AutoDJ ani katalog stacji. Test automatyczny na GitHubie generuje i demultipleksuje rzeczywisty trzysekundowy strumień Opus CBR do 20-ms pakietów.
+
+### ALTARE
+
+Z aktualnej wersji 3.7.9 wystarczy podmienić `src/opus-profile.js`, `src/bot.js`, `package.json`, `index.js`; nie nadpisuj swojego `.env`, `data/`, `music/`, `bin/`. Następnie w lokalnym `.env`:
+
+```dotenv
+NEONBEATS_RADIO_CODEC=opus
+NEONBEATS_RADIO_OPUS_PROFILE=robust-cbr
+NEONBEATS_RADIO_PREBUFFER_MS=2000
+```
+
+Zrestartuj bota. W `/status` sprawdź `Profil Opus: ROBUST CBR 96 kb/s`. W trakcie odsłuchu porównaj Radio Club Dj i ESKA przez po 10–15 minut, bez jednoczesnych zmian regionu, głośności czy innych ustawień. Jeśli CBR jest gorszy lub nie daje poprawy, wróć do `NEONBEATS_RADIO_OPUS_PROFILE=robust` i zrestartuj. Nie trzeba nowych komend, SQL ani dodatkowych bibliotek. Jeśli CBR nie eliminuje zakłóceń, kolejnym najbardziej rozstrzygającym eksperymentem jest ta sama wersja bota na innym serwerze hostingu (w danym momencie tylko jedna uruchomiona kopia bota), aby porównać trasę UDP ALTARE → Discord.
