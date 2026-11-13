@@ -6,7 +6,16 @@ const DATA = path.resolve(process.env.NEONBEATS_DATA_DIR || path.join(ROOT, 'dat
 const MUSIC = path.resolve(process.env.NEONBEATS_MUSIC_DIR || path.join(ROOT, 'music'));
 const BOT_NAME = 'NeonBeats Bot';
 const VERSION = require('../package.json').version;
-const IDLE_MINUTES = Math.max(2, Math.min(120, Number(process.env.IDLE_MINUTES) || 15));
+// 0 disables automatic disconnect while idle; 2..120 sets a timeout.
+// Missing or malformed values retain the previous 15-minute default.
+function parseIdleMinutes(raw){
+ if(raw===undefined||raw===null||String(raw).trim()==='')return 15;
+ const minutes=Number(raw);
+ if(!Number.isFinite(minutes)||minutes<0)return 15;
+ if(minutes===0)return 0;
+ return Math.max(2,Math.min(120,minutes));
+}
+const IDLE_MINUTES = parseIdleMinutes(process.env.IDLE_MINUTES);
 const SNOWFLAKE = /^\d{15,24}$/;
 function envCheck() {
  const {DISCORD_TOKEN, CLIENT_ID, GUILD_ID}=process.env;
@@ -19,4 +28,4 @@ function ffmpegPath(){
  try{const f=require('ffmpeg-static');if(f&&fs.existsSync(f))return f;}catch{}
  return 'ffmpeg';
 }
-module.exports={ROOT,DATA,MUSIC,BOT_NAME,VERSION,IDLE_MINUTES,SNOWFLAKE,envCheck,ffmpegPath};
+module.exports={ROOT,DATA,MUSIC,BOT_NAME,VERSION,IDLE_MINUTES,parseIdleMinutes,SNOWFLAKE,envCheck,ffmpegPath};
