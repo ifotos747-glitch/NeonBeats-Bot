@@ -1,5 +1,5 @@
 'use strict';
-const {Client,GatewayIntentBits,Events,EmbedBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags,PermissionFlagsBits,StringSelectMenuBuilder}=require('discord.js');
+const {Client,GatewayIntentBits,Partials,Events,EmbedBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags,PermissionFlagsBits,StringSelectMenuBuilder}=require('discord.js');
 const {execFile}=require('node:child_process');
 const {ffmpegPath,BOT_NAME,VERSION,IDLE_MINUTES}=require('./config');
 const {musicFiles,localFile,classifyInput}=require('./media');
@@ -10,7 +10,8 @@ const {MAX_PLAYLIST_ITEMS,isYouTubePlaylistUrl,loadYoutubePlaylist}=require('./y
 const {startWebControl}=require('./web-control');
 const premium=require('./premium');
 const {performanceSnapshot,performanceText}=require('./performance');
-const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildVoiceStates]});
+const {welcomeDirectMessage}=require('./dm-welcome');
+const client=new Client({intents:[GatewayIntentBits.Guilds,GatewayIntentBits.GuildVoiceStates,GatewayIntentBits.DirectMessages],partials:[Partials.Channel]});
 const hidden={flags:MessageFlags.Ephemeral};
 function clean(x){return String(x||'').replace(/[\r\n*@<>]/g,' ').slice(0,140);}
 function embed(title,body){return new EmbedBuilder().setColor(0x8e41f5).setTitle(title).setDescription(body).setFooter({text:'NeonBeats • '+VERSION});}
@@ -377,6 +378,7 @@ client.once(Events.ClientReady,async()=>{
  startWebControl(client);
  try{console.log('📻 Migracja stacji: '+radio.migrate());}catch(e){console.error('Migracja radia:',e.message);}await restore247();setInterval(()=>void restore247(),60_000).unref?.();
 });
+client.on(Events.MessageCreate,message=>{void welcomeDirectMessage(message);});
 client.on(Events.InteractionCreate,async i=>{
  if(!i.inGuild()||(!i.isChatInputCommand()&&!i.isButton()&&!i.isStringSelectMenu()))return;
  try{
