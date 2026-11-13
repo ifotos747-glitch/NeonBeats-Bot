@@ -236,3 +236,17 @@ NeonBeats wysyła teraz **estetyczną kartę powitalną w prywatnej rozmowie 1:1
 **Ograniczenie Discord API:** zwykłe boty nie mogą dołączać do grupowych DM i nie dostają zdarzenia przy samym otwarciu prywatnego czatu lub instalacji aplikacji do konta. Wiadomość wyzwala zatem pierwszy kontakt użytkownika na DM; nie jest wysyłana samoczynnie tylko po dodaniu/otwarciu czatu. Do interakcji w prywatnych kanałach w ramach instalacji użytkownika potrzebne są osobne konteksty aplikacji i wywołanie przez użytkownika.
 
 **ALTARE:** z wersji 3.7.11 wymień `src/bot.js`, `package.json`, `index.js` i dodaj `src/dm-welcome.js`. Nie nadpisuj własnego `.env`, `data/`, `music/`, `bin/` — katalog `data/` przechowuje powitania. Żadne nowe klucze `.env` ani zależności npm nie są wymagane. Zrestartuj bota. Użytkownik otwiera DM z NeonBeats i wysyła krótkie `Cześć`. Bot odpowiada kartą z opisem. Druga wiadomość nie generuje ponownego powitania. Tryb radia `robust-cbr`, IDLE_MINUTES=0 i obecne funkcje serwera pozostają bez zmian.
+
+## NeonBeats 3.7.13 — STABLE OPUS A/B
+
+ESKA i Radio Club Dj miały nadal sporadyczne minimalne zakłócenia; 96kb/s profile ROBUST znacząco je ograniczyły. Dotychczasowe testy wskazywały na pełny bufor, prawidłowe ramki po 20ms i brak błędów FFmpeg, lecz nie mierzą dostarczenia pakietów do słuchaczy. Próby zmiany regionu kanału Discorda nie pomogły.
+
+W 3.7.13 dodano **opcjonalny** profil `stable-80` (80 kb/s CBR, stereo 48 kHz, ramki 20 ms, libopus FEC przy zakładanej stracie 10%). Jest to kontrolowany test obniżenia przepływności względem dotychczasowego `robust-cbr` 96 kb/s. Mniejsze pakiety mogą mieć korzyść na obciążonej sieci, ale **obniżają jakość i nie gwarantują eliminacji zakłóceń**. Nie zmieniliśmy domyślnych profili, samego bufora, prywatnych DM, radia, YouTube ani AutoDJ. Nie zmieniliśmy konfiguracji regionu Discorda. Aby wykonać porównanie na ALTARE:
+
+1. Z wersji 3.7.12 podmień `src/opus-profile.js`, `src/bot.js`, `package.json` oraz `index.js`, zachowując własny `.env` i `data/`.
+2. W `.env` ustaw `NEONBEATS_RADIO_CODEC=opus`, `NEONBEATS_RADIO_OPUS_PROFILE=stable-80` i pozostaw `NEONBEATS_RADIO_PREBUFFER_MS=2000`.
+3. Zrestartuj bota i sprawdź `/status`: `Profil Opus: STABLE 80 kb/s CBR`.
+4. Posłuchaj każdej stacji co najmniej 10 minut i porównaj liczbę słyszalnych zakłóceń przy identycznym regionie, głośności i klientach Discorda.
+5. Jeśli 80 kb/s nie pomaga lub pogarsza brzmienie, wróć do `NEONBEATS_RADIO_OPUS_PROFILE=robust-cbr` (ew. `robust`) i zrestartuj bota.
+
+Wszystkie profile zachowują pozostałe funkcje. Jeśli profil 80 kb/s nadal ma zakłócenia przy czystych metrykach lokalnych, następny istotny eksperyment to porównanie tej samej wersji na innym hostingu lub regionie sieciowym, **nie uruchamiając jednocześnie dwóch kopii z tym samym tokenem**. To jedyny sposób, by odróżnić wpływ sieci hostingu od innych wspólnych przyczyn, bez zgadywania. Zmiana profilu to eksperyment, a nie potwierdzona naprawa.
