@@ -5,6 +5,11 @@ const ROOT = path.resolve(__dirname, '..');
 const DATA = path.resolve(process.env.NEONBEATS_DATA_DIR || path.join(ROOT, 'data'));
 const MUSIC = path.resolve(process.env.NEONBEATS_MUSIC_DIR || path.join(ROOT, 'music'));
 const BOT_NAME = 'NeonBeats Bot';
+function hostLabel(env=process.env){
+ const raw=String(env.NEONBEATS_HOST_LABEL||'').trim().replace(/[^a-zA-Z0-9 _.-]/g,'');
+ return raw.slice(0,36)||'nieoznaczony';
+}
+const HOST_LABEL=hostLabel();
 const VERSION = require('../package.json').version;
 // 0 disables automatic disconnect while idle; 2..120 sets a timeout.
 // Missing or malformed values retain the previous 15-minute default.
@@ -28,4 +33,4 @@ function ffmpegPath(){
  try{const f=require('ffmpeg-static');if(f&&fs.existsSync(f))return f;}catch{}
  return 'ffmpeg';
 }
-module.exports={ROOT,DATA,MUSIC,BOT_NAME,VERSION,IDLE_MINUTES,parseIdleMinutes,SNOWFLAKE,envCheck,ffmpegPath};
+module.exports={ROOT,DATA,MUSIC,BOT_NAME,HOST_LABEL,hostLabel,VERSION,IDLE_MINUTES,parseIdleMinutes,SNOWFLAKE,envCheck,ffmpegPath};
