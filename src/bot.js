@@ -1,7 +1,7 @@
 'use strict';
 const {Client,GatewayIntentBits,Partials,Events,EmbedBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags,PermissionFlagsBits,StringSelectMenuBuilder}=require('discord.js');
 const {execFile}=require('node:child_process');
-const {ffmpegPath,BOT_NAME,VERSION,IDLE_MINUTES}=require('./config');
+const {ffmpegPath,BOT_NAME,HOST_LABEL,VERSION,IDLE_MINUTES}=require('./config');
 const {musicFiles,localFile,classifyInput}=require('./media');
 const store=require('./store'),radio=require('./global-radio'),{sessions,ensureSession,audioBufferMs,MAX_MISSED_FRAMES,radioCodec}=require('./player');
 const {diagnoseStream,diagnoseLocalFFmpeg,diagnoseHttp,formatDiagnostic}=require('./diagnostics');
@@ -139,7 +139,7 @@ async function slash(i){
  if(n==='status'){
   await i.deferReply(hidden);const s=sessions.get(i.guildId),d=store.read(i.guildId),health=s?.radioHealth?.snapshot(),voice=s?.voiceHealth?.snapshot();
   return i.editReply({embeds:[embed('🧪 NEONBEATS • STATUS',
-   'Wersja: '+VERSION+'\nNode: '+process.version+'\nFFmpeg: '+await ffVersion()+'\nVoice: '+
+   'Wersja: '+VERSION+'\nHosting testowy: '+HOST_LABEL+'\nNode: '+process.version+'\nFFmpeg: '+await ffVersion()+'\nVoice: '+
    (s?.connection.state.status||'brak')+'\nPlayer: '+(s?.player.state.status||'brak')+
    '\nAuto-rozłączenie przy bezczynności: '+(IDLE_MINUTES===0?'WYŁĄCZONE':IDLE_MINUTES+' min')+ '\nPliki: '+musicFiles().length+'\nStacje globalne: '+radio.list().length+
    '\n24/7: '+(d.alwaysOn?.mode||'wyłączony')+'\nDJ: '+d.dj+
