@@ -144,7 +144,7 @@ async function slash(i){
    '\nAuto-rozłączenie przy bezczynności: '+(IDLE_MINUTES===0?'WYŁĄCZONE':IDLE_MINUTES+' min')+ '\nPliki: '+musicFiles().length+'\nStacje globalne: '+radio.list().length+
    '\n24/7: '+(d.alwaysOn?.mode||'wyłączony')+'\nDJ: '+d.dj+
    '\nTryb radia: '+(s?.radioOpus?'OPUS NATYWNY':(radioCodec()==='opus'&&s?.nativeOpusFailed?'PCM (powrót po błędzie)':'PCM'))+
-   (s?.radioOpus?'\nProfil Opus: '+(s.radioOpusProfile==='robust-cbr'?'ROBUST CBR 96 kb/s':s.radioOpusProfile==='robust'?'ROBUST 96 kb/s':'STANDARD 128 kb/s'):'')+
+   (s?.radioOpus?'\nProfil Opus: '+(s.radioOpusProfile==='stable-80'?'STABLE 80 kb/s CBR':s.radioOpusProfile==='robust-cbr'?'ROBUST CBR 96 kb/s':s.radioOpusProfile==='robust'?'ROBUST 96 kb/s':'STANDARD 128 kb/s'):'')+
    '\nBufor radia: '+audioBufferMs({kind:'radio'})+' ms | bufor YouTube: '+audioBufferMs({kind:'youtube-link'})+' ms'+
    '\nTolerancja krótkich przerw: '+MAX_MISSED_FRAMES*20+' ms'+
    (s?.radioStats?'\n📻 Radio live: bufor '+s.radioStats.bufferedMs+' ms (maks. '+s.radioStats.peakBufferedMs+' ms)'+
