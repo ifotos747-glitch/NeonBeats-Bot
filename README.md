@@ -220,3 +220,11 @@ NEONBEATS_RADIO_PREBUFFER_MS=2000
 ```
 
 Zrestartuj bota. W `/status` sprawdź `Profil Opus: ROBUST CBR 96 kb/s`. W trakcie odsłuchu porównaj Radio Club Dj i ESKA przez po 10–15 minut, bez jednoczesnych zmian regionu, głośności czy innych ustawień. Jeśli CBR jest gorszy lub nie daje poprawy, wróć do `NEONBEATS_RADIO_OPUS_PROFILE=robust` i zrestartuj. Nie trzeba nowych komend, SQL ani dodatkowych bibliotek. Jeśli CBR nie eliminuje zakłóceń, kolejnym najbardziej rozstrzygającym eksperymentem jest ta sama wersja bota na innym serwerze hostingu (w danym momencie tylko jedna uruchomiona kopia bota), aby porównać trasę UDP ALTARE → Discord.
+
+## NeonBeats 3.7.11 — STAY CONNECTED
+
+Nowe ustawienie `IDLE_MINUTES=0` wyłącza automatyczne opuszczanie kanału głosowego z powodu bezczynności — bot może pozostawać na kanale nawet bez muzyki i bez aktywnego trybu 24/7. Dla liczb dodatnich (2–120 minut) funkcja działa jak dawniej. Brak lub nieprawidłowa wartość nadal oznacza domyślne 15 minut. `/stop` zatrzymuje dźwięk i pozostawia połączenie, `/leave` nadal ręcznie rozłącza. Nie zmieniamy YouTube, AutoDJ, radia ani profilu Opus. Pole `/status` wyświetla `Auto-rozłączenie przy bezczynności: WYŁĄCZONE` przy ustawieniu 0. Nie gwarantuje to nieprzerwanej obecności w przypadku restartu ALTARE, restartu Discord, awarii lub utraty połączenia sieciowego.
+
+### Instalacja na ALTARE
+
+Z wersji 3.7.10 podmień `src/config.js`, `src/player.js`, `src/bot.js`, `package.json` i `index.js`, **zachowując własny plik `.env` oraz katalogi `data/`, `music/`, `bin/`**. W swoim `.env` zmień dotychczasowe `IDLE_MINUTES=15` na `IDLE_MINUTES=0`; upewnij się, że to ustawienie występuje tylko raz. Zrestartuj bota i sprawdź `/status`. Jeśli bot już jest na kanale i nic nie gra, pozostanie tam aż do ręcznego `/leave` lub zdarzenia zewnętrznego. Zmianę można cofnąć przez `IDLE_MINUTES=15` + restart.
