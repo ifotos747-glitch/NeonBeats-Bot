@@ -1,7 +1,7 @@
 'use strict';
 const {Client,GatewayIntentBits,Events,EmbedBuilder,ActionRowBuilder,ButtonBuilder,ButtonStyle,MessageFlags,PermissionFlagsBits,StringSelectMenuBuilder}=require('discord.js');
 const {execFile}=require('node:child_process');
-const {ffmpegPath,BOT_NAME,VERSION}=require('./config');
+const {ffmpegPath,BOT_NAME,VERSION,IDLE_MINUTES}=require('./config');
 const {musicFiles,localFile,classifyInput}=require('./media');
 const store=require('./store'),radio=require('./global-radio'),{sessions,ensureSession,audioBufferMs,MAX_MISSED_FRAMES,radioCodec}=require('./player');
 const {diagnoseStream,diagnoseLocalFFmpeg,diagnoseHttp,formatDiagnostic}=require('./diagnostics');
@@ -140,7 +140,7 @@ async function slash(i){
   return i.editReply({embeds:[embed('🧪 NEONBEATS • STATUS',
    'Wersja: '+VERSION+'\nNode: '+process.version+'\nFFmpeg: '+await ffVersion()+'\nVoice: '+
    (s?.connection.state.status||'brak')+'\nPlayer: '+(s?.player.state.status||'brak')+
-   '\nPliki: '+musicFiles().length+'\nStacje globalne: '+radio.list().length+
+   '\nAuto-rozłączenie przy bezczynności: '+(IDLE_MINUTES===0?'WYŁĄCZONE':IDLE_MINUTES+' min')+ '\nPliki: '+musicFiles().length+'\nStacje globalne: '+radio.list().length+
    '\n24/7: '+(d.alwaysOn?.mode||'wyłączony')+'\nDJ: '+d.dj+
    '\nTryb radia: '+(s?.radioOpus?'OPUS NATYWNY':(radioCodec()==='opus'&&s?.nativeOpusFailed?'PCM (powrót po błędzie)':'PCM'))+
    (s?.radioOpus?'\nProfil Opus: '+(s.radioOpusProfile==='robust-cbr'?'ROBUST CBR 96 kb/s':s.radioOpusProfile==='robust'?'ROBUST 96 kb/s':'STANDARD 128 kb/s'):'')+
