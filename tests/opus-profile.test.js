@@ -10,6 +10,7 @@ test('robust radio transport must be explicitly enabled; standard matches 3.7.8'
  assert.equal(opusProfile({NEONBEATS_RADIO_OPUS_PROFILE:'anything'}),'standard');
  assert.equal(opusProfile({NEONBEATS_RADIO_OPUS_PROFILE:'robust'}),'robust');
  assert.equal(opusProfile({NEONBEATS_RADIO_OPUS_PROFILE:'robust-cbr'}),'robust-cbr');
+ assert.equal(opusProfile({NEONBEATS_RADIO_OPUS_PROFILE:'stable-80'}),'stable-80');
  const baseline=opusOutputArgs();
  assert.deepEqual(baseline.slice(-6),['-b:a','128k','-vbr','on','-f','opus','pipe:1'].slice(-6));
  assert.ok(!baseline.includes('-fec'));
@@ -23,6 +24,10 @@ test('robust radio transport must be explicitly enabled; standard matches 3.7.8'
   robust.map((x,i)=>i===robust.indexOf('-vbr')+1?'PROFILE':x));
  assert.equal(cbr[cbr.indexOf('-vbr')+1],'off');
  assert.equal(robust[robust.indexOf('-vbr')+1],'constrained');
+ const stable=opusOutputArgs('stable-80');
+ assert.equal(stable[stable.indexOf('-b:a')+1],'80k');
+ assert.equal(stable[stable.indexOf('-vbr')+1],'off');
+ assert.equal(stable[stable.indexOf('-fec')+1],'1');
 });
 
 test('FFmpeg robust encoder produces valid 20ms Opus packets for the existing buffer',{timeout:20000},async()=>{
@@ -79,5 +84,31 @@ test('FFmpeg robust CBR encoder produces valid 20ms Discord Opus packets',{timeo
   assert.equal(buffering.stats.receivedPackets,packets);
   assert.equal(buffering.stats.playedPackets,packets);
   assert.ok(largest>0&&smallest>0);
+ }finally{clearTimeout(kill);buffering.stop();if(child.exitCode===null)child.kill('SIGKILL');}
+});
+
+test('FFmpeg stable-80 CBR encoder produces valid Ogg Opus 20ms packet stream',{timeout:20000},async()=>{
+ const args=['-nostdin','-hide_banner','-loglevel','error',
+  '-f','lavfi','-i','sine=frequency=600:sample_rate=48000:duration=3',
+  ...opusOutputArgs('stable-80')];
+ const child=spawn(ffmpegPath(),args,{stdio:['ignore','pipe','pipe']});
+ let stderr='';child.stderr.on('data',b=>{stderr=(stderr+String(b)).slice(-1000);});
+ const kill=setTimeout(()=>child.kill('SIGKILL'),13000);kill.unref?.();
+ const buffering=bufferOpusRadio(child.stdout,()=>{}, {milliseconds:200,maxMs:1000});
+ let packets=0,receivedBytes=0;
+ try{
+  for await(const packet of buffering.stream){
+   assert.ok(Buffer.isBuffer(packet)&&packet.length>0);
+   receivedBytes+=packet.length;packets++;
+  }
+  const code=await new Promise((resolve,reject)=>{
+   if(child.exitCode!==null)return resolve(child.exitCode);
+   child.once('error',reject);child.once('close',resolve);
+  });
+  assert.equal(code,0,stderr);
+  assert.ok(packets>=120,'Expected 3s of 20ms packets, got '+packets);
+  assert.equal(buffering.stats.receivedPackets,packets);
+  assert.equal(buffering.stats.playedPackets,packets);
+  assert.ok(receivedBytes>1500);
  }finally{clearTimeout(kill);buffering.stop();if(child.exitCode===null)child.kill('SIGKILL');}
 });
