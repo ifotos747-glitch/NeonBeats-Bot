@@ -228,3 +228,11 @@ Nowe ustawienie `IDLE_MINUTES=0` wyłącza automatyczne opuszczanie kanału gło
 ### Instalacja na ALTARE
 
 Z wersji 3.7.10 podmień `src/config.js`, `src/player.js`, `src/bot.js`, `package.json` i `index.js`, **zachowując własny plik `.env` oraz katalogi `data/`, `music/`, `bin/`**. W swoim `.env` zmień dotychczasowe `IDLE_MINUTES=15` na `IDLE_MINUTES=0`; upewnij się, że to ustawienie występuje tylko raz. Zrestartuj bota i sprawdź `/status`. Jeśli bot już jest na kanale i nic nie gra, pozostanie tam aż do ręcznego `/leave` lub zdarzenia zewnętrznego. Zmianę można cofnąć przez `IDLE_MINUTES=15` + restart.
+
+## NeonBeats 3.7.12 — PRIVATE DM WELCOME
+
+NeonBeats wysyła teraz **estetyczną kartę powitalną w prywatnej rozmowie 1:1** automatycznie po **pierwszej wiadomości użytkownika** skierowanej do konta bota. Karta przedstawia radio internetowe/24/7, YouTube, playlisty, muzykę, AutoDJ, efekty DJ, komendy i konieczność korzystania z odtwarzania na kanale głosowym serwera. Powitanie jest wysyłane **raz na użytkownika** i nie pojawia się ponownie po restarcie, bo stan (hashe SHA-256 identyfikatorów, nie ich jawne wartości) jest zapisywany w `data/dm-welcome.json`. Nie zapisujemy treści prywatnych wiadomości. Nie odpowiadamy botom, wiadomościom na serwerach ani w grupowych DM. Jeżeli wysłanie się nie powiedzie (np. blokada DM), ponowne przywitanie może zostać podjęte przy kolejnej wiadomości użytkownika.
+
+**Ograniczenie Discord API:** zwykłe boty nie mogą dołączać do grupowych DM i nie dostają zdarzenia przy samym otwarciu prywatnego czatu lub instalacji aplikacji do konta. Wiadomość wyzwala zatem pierwszy kontakt użytkownika na DM; nie jest wysyłana samoczynnie tylko po dodaniu/otwarciu czatu. Do interakcji w prywatnych kanałach w ramach instalacji użytkownika potrzebne są osobne konteksty aplikacji i wywołanie przez użytkownika.
+
+**ALTARE:** z wersji 3.7.11 wymień `src/bot.js`, `package.json`, `index.js` i dodaj `src/dm-welcome.js`. Nie nadpisuj własnego `.env`, `data/`, `music/`, `bin/` — katalog `data/` przechowuje powitania. Żadne nowe klucze `.env` ani zależności npm nie są wymagane. Zrestartuj bota. Użytkownik otwiera DM z NeonBeats i wysyła krótkie `Cześć`. Bot odpowiada kartą z opisem. Druga wiadomość nie generuje ponownego powitania. Tryb radia `robust-cbr`, IDLE_MINUTES=0 i obecne funkcje serwera pozostają bez zmian.
