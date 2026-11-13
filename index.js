@@ -3,7 +3,7 @@ require('dotenv').config();
 const {envCheck, VERSION}=require('./src/config');
 async function main(){
   envCheck();
-  console.log('🎧 NeonBeats Bot '+VERSION+' — ROBUST OPUS TEST');
+  console.log('🎧 NeonBeats Bot '+VERSION+' — ROBUST CBR TEST');
   await require('./src/register').register();
   await require('./src/bot').start();
 }
