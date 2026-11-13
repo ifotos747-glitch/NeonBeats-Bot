@@ -250,3 +250,7 @@ W 3.7.13 dodano **opcjonalny** profil `stable-80` (80 kb/s CBR, stereo 48 kHz, r
 5. Jeśli 80 kb/s nie pomaga lub pogarsza brzmienie, wróć do `NEONBEATS_RADIO_OPUS_PROFILE=robust-cbr` (ew. `robust`) i zrestartuj bota.
 
 Wszystkie profile zachowują pozostałe funkcje. Jeśli profil 80 kb/s nadal ma zakłócenia przy czystych metrykach lokalnych, następny istotny eksperyment to porównanie tej samej wersji na innym hostingu lub regionie sieciowym, **nie uruchamiając jednocześnie dwóch kopii z tym samym tokenem**. To jedyny sposób, by odróżnić wpływ sieci hostingu od innych wspólnych przyczyn, bez zgadywania. Zmiana profilu to eksperyment, a nie potwierdzona naprawa.
+
+## NeonBeats 3.7.14 — HOSTING A/B DIAGNOSIS
+
+Dodano opcjonalną etykietę hostingu `NEONBEATS_HOST_LABEL`, widoczną w `/status` jako `Hosting testowy`. Nie zmienia kodowania audio ani bufora. Przygotowano instrukcję [HOSTING-AB-TEST.md](HOSTING-AB-TEST.md) z procedurą porównania ALTARE i innego hostingu z identycznym profilem `robust` 96 kb/s, stacją, regionem głosowym, klientem Discord i czasem odsłuchu. Celem jest ustalenie, czy ostatnie zakłócenia zależą od hostingu. **Nie uruchamiaj dwóch instancji bota z tym samym tokenem jednocześnie**. Katalog danych i plik `.env` muszą pozostać prywatne; na drugim serwerze użyj osobnego katalogu wdrożenia. Żadnych zmian w DM, YouTube, rankingu stacji, AutoDJ lub funkcjach 24/7.
