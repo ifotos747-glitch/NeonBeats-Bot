@@ -228,7 +228,13 @@ class MusicSession{
     if(this.alwaysOn?.mode==='autodj'||this.autodj){this.setRetry(30_000);return;}
     if(this.alwaysOn?.mode==='silent')return;
     void this.showControlPanel(null);
-   this.timer=setTimeout(()=>this.destroy(),IDLE_MINUTES*60_000);this.timer.unref?.();return;
+    // IDLE_MINUTES=0 means stay in the Discord voice channel indefinitely
+    // while idle. The explicit /leave command still calls destroy().
+    if(IDLE_MINUTES>0){
+     this.timer=setTimeout(()=>this.destroy(),IDLE_MINUTES*60_000);
+     this.timer.unref?.();
+    }
+    return;
    }
    this.current=item;
    this.skipRequested=false;
